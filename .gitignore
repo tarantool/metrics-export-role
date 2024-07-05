@@ -1,0 +1,12 @@
+*~
+*.snap
+*.xlog
+*.log
+VERSION
+luacov.stats.out
+luacov.report.out
+tags
+.rocks
+doc/apidoc/
+.idea
+*.swp
