@@ -1,0 +1,32 @@
+credentials:
+  users:
+    guest:
+      roles: [super]
+
+groups:
+  group-001:
+    replicasets:
+      replicaset-001:
+        instances:
+          master:
+            roles: [roles.metrics-export]
+            roles_cfg:
+              roles.metrics-export:
+                http:
+                - listen: 8081
+                  endpoints:
+                  - path: /metrics/json
+                    format: json
+                  - path: /metrics/prometheus/
+                    format: prometheus
+                - listen: '127.0.0.1:8082'
+                  endpoints:
+                  - path: /metrics/prometheus
+                    format: prometheus
+                  - path: /metrics/json/
+                    format: json
+            iproto:
+              listen:
+                - uri: '127.0.0.1:3313'
+            database:
+              mode: rw
