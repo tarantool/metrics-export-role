@@ -85,9 +85,7 @@ jobs:
         id: cache-rocks
         with:
           path: .rocks/
-          key: "cache-rocks-${{ matrix.tarantool }}${{ env.VERSION_POSTFIX }}-\
-            ${{ matrix.cartridge-version }}-\
-            ${{ matrix.metrics-version }}"
+          key: "cache-rocks-${{ matrix.tarantool }}${{ env.VERSION_POSTFIX }}"
 
       - name: Setup tt
         run: |
