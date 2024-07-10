@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - The role implementation (#6).
+- A documentation for the role to README.md (#5).
 
 ### Fixed
 
