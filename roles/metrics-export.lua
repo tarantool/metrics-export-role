@@ -3,6 +3,10 @@ local http_server = require('http.server')
 
 local M = {}
 
+-- Сontains the module version.
+-- Requires manual update in case of release commit.
+M._VERSION = "0.1.0"
+
 local function is_array(tbl)
     assert(type(tbl) == "table", "a table expected")
     for k, _ in pairs(tbl) do
