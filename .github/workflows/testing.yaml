@@ -19,8 +19,9 @@ jobs:
       matrix:
         tarantool:
           - 'debug-master'
-          - '3.1'
-
+        include:
+          - tarantool: '3.1'
+            coveralls: true
     env:
       TNT_DEBUG_PATH: /home/runner/tnt-debug
 
@@ -102,3 +103,9 @@ jobs:
       - run: make check
 
       - run: make test
+
+      - name: Send code coverage to 'coveralls.io'
+        run: make coveralls
+        if: ${{ matrix.coveralls }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

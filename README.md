@@ -1,3 +1,7 @@
+<a href='https://coveralls.io/github/tarantool/metrics-export-role?branch=master'>
+<img src='https://coveralls.io/repos/github/tarantool/metrics-export-role/badge.svg?branch=master' alt='Coverage Status' />
+</a>
+
 # metrics-export-role
 
 `roles.metrics-export` is a role for Tarantool 3. It allows to export metrics
