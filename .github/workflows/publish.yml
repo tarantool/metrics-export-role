@@ -13,4 +13,3 @@ jobs:
         uses: tarantool/actions/check-module-version@better0fdead/check-version-change-tar-version
         with:
           module-name: 'roles.metrics-export'
-          tarantool-version: '3.1'
