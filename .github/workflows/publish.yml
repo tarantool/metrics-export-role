@@ -2,106 +2,15 @@ name: publish
 
 on:
   push:
-    branches: [master]
-    tags: ['*']
+  pull_request:
+  workflow_dispatch:
 
 jobs:
   version-check:
-    # We need this job to run only on push with tag.
-    if: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') }}
     runs-on: ubuntu-22.04
     steps:
-      # We can not use 'tarantool/check-module-version' action since it installs Tarantool 2.10.
-      # For this module we need Tarantool 3.
-      - name: Clone the module
-        uses: actions/checkout@v3
-
-      - name: Install tarantool 3.1
-        uses: tarantool/setup-tarantool@v3
+      - name: Check module version
+        uses: tarantool/actions/check-module-version@better0fdead/check-version-change-tar-version
         with:
+          module-name: 'roles.metrics-export'
           tarantool-version: '3.1'
-
-      - name: Setup tt
-        run: |
-          curl -L https://tarantool.io/XodVosJ/release/3/installer.sh | bash
-          sudo apt install -y tt
-          tt version
-
-      # https://stackoverflow.com/questions/58177786/get-the-current-pushed-tag-in-github-actions
-      - name: Set env
-        run: echo "GIT_TAG=${GITHUB_REF#refs/*/}" >> $GITHUB_ENV
-
-      - run: tt rocks make
-
-      - name: Check package version
-        run: |
-          REPO_TAG=${GIT_TAG}
-          MODULE_VERSION=$(tarantool -e "print(require('roles.metrics-export')._VERSION)")
-          echo "Detected version from code is $MODULE_VERSION"
-          echo "Detected repo tag is $REPO_TAG"
-          if [ "$MODULE_VERSION" != "$REPO_TAG" ]; then
-            echo "::error::Version from code and the last repository tag are not equal"
-            echo "::notice::You may have forgotten to update the value in the version.lua file"
-            exit 1
-          fi
-        shell: bash
-
-  publish-rockspec-scm-1:
-    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/master' }}
-    runs-on: ubuntu-22.04
-    steps:
-      - uses: actions/checkout@v3
-      - uses: tarantool/rocks.tarantool.org/github-action@master
-        with:
-          auth: ${{ secrets.ROCKS_AUTH }}
-          files: metrics-export-role-scm-1.rockspec
-
-  publish-rockspec-tag:
-    if: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') }}
-    needs: version-check
-    runs-on: ubuntu-22.04
-    steps:
-      - uses: actions/checkout@v3
-
-      # Create a rockspec for the release.
-      - run: printf '%s=%s\n' TAG "${GITHUB_REF##*/}" >> "${GITHUB_ENV}"
-      - run: sed -E
-          -e 's/branch = ".+"/tag = "${{ env.TAG }}"/g'
-          -e 's/version = ".+"/version = "${{ env.TAG }}-1"/g'
-          metrics-export-role-scm-1.rockspec > metrics-export-role-${{ env.TAG }}-1.rockspec
-
-      - name: Setup tt
-        run: |
-          curl -L https://tarantool.io/XodVosJ/release/3/installer.sh | bash
-          sudo apt install -y tt
-          tt version
-
-      # Create a rock for the release (.all.rock).
-      #
-      # `tt rocks pack <module_name> <version>` creates
-      # .all.rock tarball. It speeds up
-      # `tt rocks install <module_name> <version>` and
-      # frees it from dependency on git.
-      #
-      # Don't confuse this command with
-      # `tt rocks pack <rockspec>`, which creates a
-      # source tarball (.src.rock).
-      #
-      # Important: Don't upload binary rocks to
-      # rocks.tarantool.org. Lua/C modules should be packed into
-      # .src.rock instead. See [1] for description of rock types.
-      #
-      # [1]: https://github.com/luarocks/luarocks/wiki/Types-of-rocks
-      - uses: tarantool/setup-tarantool@v3
-        with:
-          tarantool-version: '3.1'
-      - run: tt rocks install metrics-export-role-${{ env.TAG }}-1.rockspec
-      - run: tt rocks pack metrics-export-role ${{ env.TAG }}
-
-      # Upload .rockspec and .all.rock.
-      - uses: tarantool/rocks.tarantool.org/github-action@master
-        with:
-          auth: ${{ secrets.ROCKS_AUTH }}
-          files: |
-            metrics-export-role-${{ env.TAG }}-1.rockspec
-            metrics-export-role-${{ env.TAG }}-1.all.rock
