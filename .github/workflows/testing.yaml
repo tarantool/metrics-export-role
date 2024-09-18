@@ -90,7 +90,7 @@ jobs:
 
       - name: Setup tt
         run: |
-          curl -L https://tarantool.io/XodVosJ/release/3/installer.sh | bash
+          curl -L https://tarantool.io/release/3/installer.sh | bash
           sudo apt install -y tt
           tt version
 
