@@ -66,6 +66,34 @@ local function assert_prometheus(uri)
     t.assert_not(ok)
 end
 
+local function assert_observed(host, path)
+    -- Trigger observation.
+    http_client.get(host .. path)
+
+    local response = http_client.get(host .. path)
+    t.assert_equals(response.status, 200)
+    t.assert(response.body)
+
+    local pattern = "http_server_request_latency_count.*" .. path
+    t.assert_str_contains(response.body, pattern, true)
+    local ok = pcall(json.decode, response.body)
+    t.assert_not(ok)
+end
+
+local function assert_not_observed(host, path)
+    -- Trigger observation.
+    http_client.get(host .. path)
+
+    local response = http_client.get(host .. path)
+    t.assert_equals(response.status, 200)
+    t.assert(response.body)
+
+    local pattern = "http_server_request_latency_count.*" .. path
+    t.assert_not_str_contains(response.body, pattern, true)
+    local ok = pcall(json.decode, response.body)
+    t.assert_not(ok)
+end
+
 g.test_endpoints = function()
     assert_json("http://127.0.0.1:8081/metrics/json")
     assert_json("http://127.0.0.1:8081/metrics/json/")
@@ -76,4 +104,8 @@ g.test_endpoints = function()
     assert_prometheus("http://127.0.0.1:8082/metrics/prometheus/")
     assert_json("http://127.0.0.1:8082/metrics/json")
     assert_json("http://127.0.0.1:8082/metrics/json/")
+
+    assert_not_observed("http://127.0.0.1:8081", "/metrics/prometheus")
+    assert_not_observed("http://127.0.0.1:8082", "/metrics/prometheus")
+    assert_observed("http://127.0.0.1:8082", "/metrics/observed/prometheus")
 end

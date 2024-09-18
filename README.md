@@ -89,6 +89,18 @@ incoming requests. An individual endpoint can be described as:
   format: format_to_export
 ```
 
+Optionally, you can enable
+[http metrics](https://www.tarantool.io/en/doc/latest/reference/reference_lua/metrics/#collecting-http-metrics)
+for each endpoint. For this you should
+set `metrics.enabled` to `true`:
+
+```yaml
+- path: /path/to/export/on/the/server
+  format: format_to_export
+  metrics:
+    enabled: true
+```
+
 For now only `json` and `prometheus` formats are supported.
 
 Let's put it all together now:
@@ -107,6 +119,8 @@ roles_cfg:
       endpoints:
       - path: /metrics/
         format: json
+        metrics:
+          enabled: true
 ```
 
 With this configuration, metrics can be obtained on this machine with the
