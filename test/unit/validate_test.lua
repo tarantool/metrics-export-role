@@ -392,7 +392,7 @@ end
 for name, case in pairs(error_cases) do
     g["test_apply_validate_error_" .. name] = function(gc)
         t.assert_error_msg_contains(case.err, function()
-            gc.role.validate(case.cfg)
+            gc.role.apply(case.cfg)
         end)
     end
 end
