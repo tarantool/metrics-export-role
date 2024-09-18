@@ -125,6 +125,20 @@ local http_handlers = {
 -- It is used as an error string with the predefined order.
 local http_supported_formats_str = "json, prometheus"
 
+local function validate_endpoint_metrics(metrics)
+    if type(metrics) ~= 'table' then
+        error("http endpoint 'metrics' must be a table, got " .. type(metrics), 5)
+    end
+
+    if is_array(metrics) then
+        error("http endpoint 'metrics' must be a map, not an array", 5)
+    end
+
+    if metrics.enabled ~= nil and type(metrics.enabled) ~= 'boolean' then
+        error("http endpoint metrics 'enabled' must be a boolean, got " .. type(metrics.enabled), 5)
+    end
+end
+
 local function validate_http_endpoint(endpoint)
     if type(endpoint) ~= "table" then
         error("http endpoint must be a table, got " .. type(endpoint), 4)
@@ -149,6 +163,10 @@ local function validate_http_endpoint(endpoint)
     if not http_handlers[endpoint.format] then
         error("http endpoint 'format' must be one of: " ..
               http_supported_formats_str .. ", got " .. endpoint.format, 4)
+    end
+
+    if endpoint.metrics ~= nil then
+        validate_endpoint_metrics(endpoint.metrics)
     end
 end
 
@@ -217,6 +235,25 @@ local function validate_http(conf)
     end
 end
 
+local function wrap_handler(handler, metrics)
+    if metrics ~= nil and metrics.enabled == true then
+        local http_middleware = require('metrics.http_middleware')
+        return http_middleware.v1(handler)
+    end
+    return handler
+end
+
+local function routes_equal(old, new)
+    assert(type(old.metrics) == 'table')
+    assert(type(new.metrics) == 'table')
+
+    if old.format ~= new.format or old.metrics.enabled ~= new.metrics.enabled then
+        return false
+    end
+
+    return true
+end
+
 local function apply_http(conf)
     local enabled = {}
     for _, node in ipairs(conf) do
@@ -245,28 +282,31 @@ local function apply_http(conf)
             local new_routes = {}
             for _, endpoint in ipairs(node.endpoints) do
                 local path = remove_side_slashes(endpoint.path)
-                new_routes[path] = endpoint.format
+                new_routes[path] = {
+                    format = endpoint.format,
+                    metrics = endpoint.metrics or {},
+                }
             end
 
             -- Remove old routes.
-            for path, format in pairs(old_routes) do
-                if new_routes[path] == nil or new_routes[path] ~= format then
+            for path, e in pairs(old_routes) do
+                if new_routes[path] == nil or not routes_equal(e, new_routes[path]) then
                     delete_route(httpd, path)
                     old_routes[path] = nil
                 end
             end
 
             -- Add new routes.
-            for path, format in pairs(new_routes) do
+            for path, endpoint in pairs(new_routes) do
                 if old_routes[path] == nil then
                     httpd:route({
                         method = "GET",
                         path = path,
                         name = path,
-                    }, http_handlers[format])
+                    }, wrap_handler(http_handlers[endpoint.format], endpoint.metrics))
                 else
                     assert(old_routes[path] == nil
-                           or old_routes[path] == new_routes[path])
+                           or routes_equal(old_routes[path], new_routes[path]))
                 end
             end
 

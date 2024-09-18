@@ -25,6 +25,10 @@ groups:
                     format: prometheus
                   - path: /metrics/json/
                     format: json
+                  - path: /metrics/observed/prometheus
+                    format: prometheus
+                    metrics:
+                      enabled: true
             iproto:
               listen:
                 - uri: '127.0.0.1:3313'

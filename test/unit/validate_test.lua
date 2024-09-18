@@ -379,6 +379,59 @@ local error_cases = {
         },
         err = "http configuration nodes must have different listen targets",
     },
+    ["http_endpoint_metrics_is_not_table "] = {
+        cfg = {
+            http = {
+                {
+                    listen = "localhost:123",
+                    endpoints = {
+                        {
+                            path = "/",
+                            format = "json",
+                            metrics = "",
+                        },
+                    },
+                },
+            },
+        },
+        err = "http endpoint 'metrics' must be a table, got string",
+    },
+    ["http_endpoint_metrics_is_array"] = {
+        cfg = {
+            http = {
+                {
+                    listen = "localhost:123",
+                    endpoints = {
+                        {
+                            path = "/",
+                            format = "json",
+                            metrics = {1},
+                        },
+                    },
+                },
+            },
+        },
+        err = "http endpoint 'metrics' must be a map, not an array",
+    },
+    ["http_endpoint_metrics_enabled_is_not_bool"] = {
+        cfg = {
+            http = {
+                {
+                    listen = "localhost:123",
+                    endpoints = {
+                        {
+                            path = "/",
+                            format = "json",
+                            metrics = {
+                                enabled = 'true',
+                            },
+                        },
+                    },
+                },
+            },
+        },
+        err = "http endpoint metrics 'enabled' must be a boolean, got string",
+    },
 }
 
 for name, case in pairs(error_cases) do
@@ -541,6 +594,24 @@ local ok_cases = {
                 {
                     listen = "localhost:124",
                     endpoints = {},
+                },
+            },
+        },
+    },
+    ["http_endpoint_metrics_enabled_true"] = {
+        cfg = {
+            http = {
+                {
+                    listen = "localhost:123",
+                    endpoints = {
+                        {
+                            path = "/",
+                            format = "json",
+                            metrics = {
+                                enabled = true,
+                            },
+                        },
+                    },
                 },
             },
         },
