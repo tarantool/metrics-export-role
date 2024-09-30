@@ -1,6 +1,29 @@
 local t = require('luatest')
-
 local g = t.group()
+
+local mocks = require('test.helpers.mocks')
+
+local httpd_config = {
+    default = {
+        listen = 8081,
+    },
+    additional = {
+        listen = '127.0.0.1:8082',
+    },
+}
+
+local config_get_return_httpd_config = function(_, param)
+    if param == "roles_cfg" then
+        return {
+            ['roles.httpd'] = httpd_config,
+        }
+    end
+    return {}
+end
+
+local config_get_return_empty_httpd_config = function(_, _)
+    return {}
+end
 
 g.before_all(function(gc)
     gc.role = require('roles.metrics-export')
@@ -57,17 +80,6 @@ local error_cases = {
             },
         },
         err = "http configuration node must be a table, got number",
-    },
-    ["http_node_listen_not_exist"] = {
-        cfg = {
-            http = {
-                {
-                    listen = nil,
-                    endpoints = {},
-                },
-            },
-        },
-        err = "failed to parse http 'listen' param: must exist",
     },
     ["http_node_listen_not_string_and_not_number"] = {
         cfg = {
@@ -432,21 +444,133 @@ local error_cases = {
         },
         err = "http endpoint metrics 'enabled' must be a boolean, got string",
     },
+    ["integration_with_httpd_role_server_is_not_string"] = {
+        cfg = { http = { { server = 1 } } },
+        err = "server configuration sould be a string, got number",
+    },
+    ["integration_with_httpd_role_server_and_listen_simultaneously"] = {
+        cfg = {
+            http = {
+                {
+                    server = "additional",
+                    listen = 8001,
+                }
+            }
+        },
+        err = "it is not possible to provide 'server' and 'listen' blocks simultaneously",
+    },
+    ["integration_with_httpd_role_servers_not_unique"] = {
+        cfg = {
+            http = {
+                {
+                    server = "additional",
+                },
+                {
+                    listen = 8001,
+                },
+                {
+                    server = "additional",
+                },
+            }
+        },
+        mocks = {
+            {
+                module = "config",
+                method = "get",
+                implementation = config_get_return_httpd_config,
+            },
+        },
+        err = "server names must have different targets in httpd",
+    },
+    ["integration_with_httpd_role_default_servers_not_unique_straight"] = {
+        cfg = {
+            http = {
+                {
+                    server = "default",
+                },
+                {},
+            }
+        },
+        mocks = {
+            {
+                module = "config",
+                method = "get",
+                implementation = config_get_return_httpd_config,
+            },
+        },
+        err = "server names must have different targets in httpd",
+    },
+    ["integration_with_httpd_role_default_servers_not_unique_reverse"] = {
+        cfg = {
+            http = {
+                {},
+                {
+                    server = "default",
+                },
+            }
+        },
+        mocks = {
+            {
+                module = "config",
+                method = "get",
+                implementation = config_get_return_httpd_config,
+            },
+        },
+        err = "server names must have different targets in httpd",
+    },
+    ["integration_with_httpd_role_cfg_missing"] = {
+        cfg = { http = { { server = "additional" } } },
+        mocks = {
+            {
+                module = "config",
+                method = "get",
+                implementation = config_get_return_empty_httpd_config,
+            },
+        },
+        err = "there is no configuration for httpd role",
+    },
+    ["integration_with_httpd_role_server_not_found"] = {
+        cfg = { http = { { server = "not_existing_server" } } },
+        mocks = {
+            {
+                module = "config",
+                method = "get",
+                implementation = config_get_return_httpd_config,
+            },
+        },
+        err = "server with name not_existing_server not found in httpd role config",
+    },
 }
 
 for name, case in pairs(error_cases) do
     g["test_validate_error_" .. name] = function(gc)
+        if case.mocks ~= nil then
+            mocks.apply(case.mocks)
+        end
+
         t.assert_error_msg_contains(case.err, function()
             gc.role.validate(case.cfg)
         end)
+
+        if case.mocks ~= nil then
+            mocks.clear()
+        end
     end
 end
 
 for name, case in pairs(error_cases) do
     g["test_apply_validate_error_" .. name] = function(gc)
+        if case.mocks ~= nil then
+            mocks.apply(case.mocks)
+        end
+
         t.assert_error_msg_contains(case.err, function()
             gc.role.apply(case.cfg)
         end)
+
+        if case.mocks ~= nil then
+            mocks.clear()
+        end
     end
 end
 
@@ -616,10 +740,68 @@ local ok_cases = {
             },
         },
     },
+    ["integration_with_httpd_role_additional"] = {
+        cfg = { http = { { server = "additional" } } },
+        mocks = {
+            {
+                module = "config",
+                method = "get",
+                implementation = config_get_return_httpd_config,
+            },
+        },
+    },
+    ["integration_with_httpd_role_default"] = {
+        cfg = { http = { { } } },
+        mocks = {
+            {
+                module = "config",
+                method = "get",
+                implementation = config_get_return_httpd_config,
+            },
+        },
+    },
+    ["integration_with_httpd_role_different_servers"] = {
+        cfg = {
+            http = {
+                { server = "additional" },
+                {},
+            },
+        },
+        mocks = {
+            {
+                module = "config",
+                method = "get",
+                implementation = config_get_return_httpd_config,
+            },
+        },
+    },
+    ["integration_with_httpd_role_different_variations"] = {
+        cfg = {
+            http = {
+                { server = "additional" },
+                { listen = 8083 },
+            },
+        },
+        mocks = {
+            {
+                module = "config",
+                method = "get",
+                implementation = config_get_return_httpd_config,
+            },
+        },
+    },
 }
 
 for name, case in pairs(ok_cases) do
     g["test_validate_ok_" .. name] = function(gc)
+        if case.mocks ~= nil then
+            mocks.apply(case.mocks)
+        end
+
         t.assert_equals(gc.role.validate(case.cfg), nil)
+
+        if case.mocks ~= nil then
+            mocks.clear()
+        end
     end
 end

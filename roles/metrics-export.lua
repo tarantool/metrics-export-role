@@ -1,5 +1,6 @@
 local urilib = require("uri")
 local http_server = require('http.server')
+local httpd_role = require('roles.httpd')
 
 local M = {}
 
@@ -23,19 +24,6 @@ local function is_array(tbl)
     return true
 end
 
-local function delete_route(httpd, name)
-    local route = assert(httpd.iroutes[name])
-    httpd.iroutes[name] = nil
-    table.remove(httpd.routes, route)
-
-    -- Update httpd.iroutes numeration.
-    for n, r in ipairs(httpd.routes) do
-        if r.name then
-            httpd.iroutes[r.name] = n
-        end
-    end
-end
-
 -- Removes extra '/' from start and end of the path to avoid paths duplication.
 local function remove_side_slashes(path)
     if path:startswith('/') then
@@ -48,9 +36,6 @@ local function remove_side_slashes(path)
 end
 
 local function parse_listen(listen)
-    if listen == nil then
-        return nil, nil, "must exist"
-    end
     if type(listen) ~= "string" and type(listen) ~= "number" then
         return nil, nil, "must be a string or a number, got " .. type(listen)
     end
@@ -170,14 +155,39 @@ local function validate_http_endpoint(endpoint)
     end
 end
 
+-- check_server_httpd_role validates that httpd configuration and provided name exists.
+local function check_server_httpd_role(server)
+    local httpd_roles_cfg = (require("config"):get("roles_cfg") or {})['roles.httpd']
+    if httpd_roles_cfg == nil then
+        error("there is no configuration for httpd role", 4)
+    end
+    if httpd_roles_cfg[server] == nil then
+        error(("server with name %s not found in httpd role config"):format(server), 4)
+    end
+end
+
 local function validate_http_node(node)
     if type(node) ~= "table" then
         error("http configuration node must be a table, got " .. type(node), 3)
     end
 
-    local _, _, err = parse_listen(node.listen)
-    if err ~= nil then
-        error("failed to parse http 'listen' param: " .. err, 3)
+    if node.server ~= nil then
+        if type(node.server) ~= 'string' then
+            error("server configuration sould be a string, got " .. type(node.server), 3)
+        end
+
+        if node.listen ~= nil then
+            error("it is not possible to provide 'server' and 'listen' blocks simultaneously", 3)
+        end
+
+        check_server_httpd_role(node.server)
+    elseif node.listen ~= nil then
+        local _, _, err = parse_listen(node.listen)
+        if err ~= nil then
+            error("failed to parse http 'listen' param: " .. err, 3)
+        end
+    else
+        check_server_httpd_role(httpd_role.DEFAULT_SERVER_NAME)
     end
 
     node.endpoints = node.endpoints or {}
@@ -221,16 +231,31 @@ local function validate_http(conf)
     end
 
     for i, nodei in ipairs(conf) do
-        local hosti, porti, erri = parse_listen(nodei.listen)
-        assert(erri == nil) -- We should already successfully parse the URI.
+        local listen_address, server_name = nodei.listen, nodei.server
+        local hosti, porti = nil, nil
+        if listen_address ~= nil then
+            local erri
+            hosti, porti, erri = parse_listen(listen_address)
+            assert(erri == nil) -- We should already successfully parse the URI.
+        end
         for j, nodej in ipairs(conf) do
             if i ~= j then
-                local hostj, portj, errj = parse_listen(nodej.listen)
+                listen_address = nodej.listen
+                if listen_address == nil then
+                    if server_name ~= nil and server_name == nodej.server or
+                       server_name == httpd_role.DEFAULT_SERVER_NAME and nodej.server == nil or
+                       server_name == nil and nodej.server == httpd_role.DEFAULT_SERVER_NAME then
+                        error("server names must have different targets in httpd", 2)
+                    end
+                    goto continue
+                end
+                local hostj, portj, errj = parse_listen(listen_address)
                 assert(errj == nil) -- The same.
                 if hosti == hostj and porti == portj then
                     error("http configuration nodes must have different listen targets", 2)
                 end
             end
+            ::continue::
         end
     end
 end
@@ -258,24 +283,52 @@ local function apply_http(conf)
     local enabled = {}
     for _, node in ipairs(conf) do
         if #(node.endpoints or {}) > 0 then
-            local host, port, err = parse_listen(node.listen)
-            if err ~= nil then
-                error("failed to parse URI: " .. err, 2)
-            end
-            local listen = node.listen
-
-            http_servers = http_servers or {}
-            enabled[listen] = true
-
-            if http_servers[listen] == nil then
-                local httpd = http_server.new(host, port)
-                httpd:start()
-                http_servers[listen] = {
-                    httpd = httpd,
-                    routes = {},
+            local host, port, target
+            if node.server ~= nil then
+                target = {
+                    value = node.server,
+                    is_httpd_role = true,
+                }
+            elseif node.listen ~= nil then
+                local err
+                host, port, err = parse_listen(node.listen)
+                if err ~= nil then
+                    error("failed to parse URI: " .. err, 2)
+                end
+                target = {
+                    value = node.listen,
+                    is_httpd_role = false,
+                }
+            else
+                target = {
+                    value = httpd_role.DEFAULT_SERVER_NAME,
+                    is_httpd_role = true,
                 }
             end
-            local server = http_servers[listen]
+
+            http_servers = http_servers or {}
+            -- Since the 'listen' and 'server' names of other servers in the config may be
+            -- the same, we create a unique string concatenating the key name and information
+            -- about whether it is an httpd key or not.
+            enabled[tostring(target.value) .. tostring(target.is_httpd_role)] = true
+
+            if http_servers[tostring(target.value) .. tostring(target.is_httpd_role)] == nil then
+                local httpd
+                if node.listen ~= nil then
+                    httpd = http_server.new(host, port)
+                    httpd:start()
+                else
+                    httpd = httpd_role.get_server(target.value)
+                end
+
+                http_servers[tostring(target.value) .. tostring(target.is_httpd_role)] = {
+                    httpd = httpd,
+                    routes = {},
+                    is_httpd_role = target.is_httpd_role,
+                }
+            end
+
+            local server = http_servers[tostring(target.value) .. tostring(target.is_httpd_role)]
             local httpd = server.httpd
             local old_routes = server.routes
 
@@ -291,7 +344,7 @@ local function apply_http(conf)
             -- Remove old routes.
             for path, e in pairs(old_routes) do
                 if new_routes[path] == nil or not routes_equal(e, new_routes[path]) then
-                    delete_route(httpd, path)
+                    httpd:delete(path)
                     old_routes[path] = nil
                 end
             end
@@ -315,17 +368,29 @@ local function apply_http(conf)
         end
     end
 
-    for listen, server in pairs(http_servers) do
-        if not enabled[listen] then
-            server.httpd:stop()
-            http_servers[listen] = nil
+    for target, server in pairs(http_servers) do
+        if not enabled[target] then
+            if server.is_httpd_role then
+                for path, _ in pairs(server.routes) do
+                    server.httpd:delete(path)
+                end
+            else
+                server.httpd:stop()
+            end
+            http_servers[target] = nil
         end
     end
 end
 
 local function stop_http()
     for _, server in pairs(http_servers or {}) do
-        server.httpd:stop()
+        if server.is_httpd_role then
+            for path, _ in pairs(server.routes) do
+                server.httpd:delete(path)
+            end
+        else
+            server.httpd:stop()
+        end
     end
     http_servers = nil
 end
