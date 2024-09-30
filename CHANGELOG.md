@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - Introduce latency observation for http endpoint (#17).
+- Support `roles.httpd` integration (#15).
 
 ### Fixed
 

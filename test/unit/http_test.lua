@@ -1,20 +1,45 @@
 local json = require('json')
 local http_client = require('http.client')
 local metrics = require('metrics')
+local mocks = require('test.helpers.mocks')
 
 local t = require('luatest')
 local g = t.group()
 
+local httpd_config = {
+    default = {
+        listen = 8085,
+    },
+    additional = {
+        listen = '127.0.0.1:8086',
+    },
+    ["127.0.0.1:8081"] = {
+        listen = 8087,
+    },
+}
+
+local config_get_return_httpd_config = function(_, param)
+    if param == "roles_cfg" then
+        return {
+            ['roles.httpd'] = httpd_config,
+        }
+    end
+    return {}
+end
+
 g.before_all(function(cg)
     cg.role = require('roles.metrics-export')
+    cg.httpd_role = require('roles.httpd')
 end)
 
 g.before_each(function(cg)
+    cg.httpd_role.apply(httpd_config)
     cg.counter = metrics.counter('some_counter')
     cg.counter:inc(1, {label = 'ANY'})
 end)
 
 g.after_each(function(cg)
+    cg.httpd_role.stop()
     cg.role.stop()
     metrics.registry:unregister(cg.counter)
 end)
@@ -56,220 +81,942 @@ some_counter{label="ANY"} 1
     t.assert_equals(data, expected_prometheus)
 end
 
-g.test_json_endpoint = function(cg)
-    cg.role.apply({
-        http = {
-            {
-                listen = 8081,
-                endpoints = {
-                    {
-                        path = "/json_metrics",
-                        format = "json",
+local test_json_endpoint_cases = {
+    ['listen'] = {
+        cfg = {
+            http = {
+                {
+                    listen = 8081,
+                    endpoints = {
+                        {
+                            path = "/json_metrics",
+                            format = "json",
+                        },
                     },
                 },
             },
         },
-    })
-    assert_json("http://127.0.0.1:8081/json_metrics")
+        expected_url = "http://127.0.0.1:8081/json_metrics",
+    },
+    ['httpd'] = {
+        cfg = {
+            http = {
+                {
+                    server = "additional",
+                    endpoints = {
+                        {
+                            path = "/json_metrics",
+                            format = "json",
+                        },
+                    },
+                },
+            },
+        },
+        mocks = {
+            {
+                module = "config",
+                method = "get",
+                implementation = config_get_return_httpd_config,
+            },
+        },
+        expected_url = "http://127.0.0.1:8086/json_metrics"
+    },
+}
+
+for name, case in pairs(test_json_endpoint_cases) do
+    g['test_json_endpoint_' .. name] = function(cg)
+        if case.mocks ~= nil then
+            mocks.apply(case.mocks)
+        end
+
+        cg.role.apply(case.cfg)
+        assert_json(case.expected_url)
+
+        if case.mocks ~= nil then
+            mocks.clear()
+        end
+    end
 end
 
-g.test_prometheus_endpoint = function(cg)
-    cg.role.apply({
-        http = {
-            {
-                listen = 8081,
-                endpoints = {
-                    {
-                        path = "/prometheus_metrics",
-                        format = "prometheus",
+local test_prometheus_endpoint_cases = {
+    ["listen"] = {
+        cfg = {
+            http = {
+                {
+                    listen = 8081,
+                    endpoints = {
+                        {
+                            path = "/prometheus_metrics",
+                            format = "prometheus",
+                        },
                     },
                 },
             },
         },
-    })
-    assert_prometheus("http://127.0.0.1:8081/prometheus_metrics")
+        expected_url = "http://127.0.0.1:8081/prometheus_metrics",
+    },
+    ["httpd"] = {
+        cfg = {
+            http = {
+                {
+                    server = "additional",
+                    endpoints = {
+                        {
+                            path = "/prometheus_metrics",
+                            format = "prometheus",
+                        },
+                    },
+                },
+            },
+        },
+        mocks = {
+            {
+                module = "config",
+                method = "get",
+                implementation = config_get_return_httpd_config,
+            },
+        },
+        expected_url = "http://127.0.0.1:8086/prometheus_metrics",
+    },
+}
+
+for name, case in pairs(test_prometheus_endpoint_cases) do
+    g['test_prometheus_endpoint_' .. name] = function(cg)
+        if case.mocks ~= nil then
+            mocks.apply(case.mocks)
+        end
+
+        cg.role.apply(case.cfg)
+        assert_prometheus(case.expected_url)
+
+        if case.mocks ~= nil then
+            mocks.clear()
+        end
+    end
 end
 
-g.test_mixed = function(cg)
-    cg.role.apply({
-        http = {
-            {
-                listen = 8081,
-                endpoints = {
-                    {
-                        path = "/metrics1",
-                        format = "json",
-                    },
-                    {
-                        path = "/metrics2",
-                        format = "prometheus",
+local test_mixed_cases = {
+    ["listen"] = {
+        cfg = {
+            http = {
+                {
+                    listen = 8081,
+                    endpoints = {
+                        {
+                            path = "/metrics1",
+                            format = "json",
+                        },
+                        {
+                            path = "/metrics2",
+                            format = "prometheus",
+                        },
                     },
                 },
-            },
-            {
-                listen = 8082,
-                endpoints = {
-                    {
-                        path = "/metrics3",
-                        format = "json",
-                    },
-                    {
-                        path = "/metrics4",
-                        format = "prometheus",
+                {
+                    listen = 8082,
+                    endpoints = {
+                        {
+                            path = "/metrics3",
+                            format = "json",
+                        },
+                        {
+                            path = "/metrics4",
+                            format = "prometheus",
+                        },
                     },
                 },
             },
         },
-    })
-    assert_json("http://127.0.0.1:8081/metrics1")
-    assert_prometheus("http://127.0.0.1:8081/metrics2")
-    assert_none("http://127.0.0.1:8081/metrics3")
-    assert_none("http://127.0.0.1:8081/metrics4")
+        expected_json = {
+            "http://127.0.0.1:8081/metrics1",
+            "http://127.0.0.1:8082/metrics3",
+        },
+        expected_prometheus = {
+            "http://127.0.0.1:8081/metrics2",
+            "http://127.0.0.1:8082/metrics4",
+        },
+        expected_none = {
+            "http://127.0.0.1:8082/metrics1",
+            "http://127.0.0.1:8082/metrics2",
+            "http://127.0.0.1:8081/metrics3",
+            "http://127.0.0.1:8081/metrics4",
+        },
+    },
+    ["httpd"] = {
+        cfg = {
+            http = {
+                {
+                    endpoints = {
+                        {
+                            path = "/metrics1",
+                            format = "json",
+                        },
+                        {
+                            path = "/metrics2",
+                            format = "prometheus",
+                        },
+                    },
+                },
+                {
+                    server = "additional",
+                    endpoints = {
+                        {
+                            path = "/metrics3",
+                            format = "json",
+                        },
+                        {
+                            path = "/metrics4",
+                            format = "prometheus",
+                        },
+                    },
+                },
+            },
+        },
+        mocks = {
+            {
+                module = "config",
+                method = "get",
+                implementation = config_get_return_httpd_config,
+            },
+        },
+        expected_json = {
+            "http://127.0.0.1:8085/metrics1",
+            "http://127.0.0.1:8086/metrics3",
+        },
+        expected_prometheus = {
+            "http://127.0.0.1:8085/metrics2",
+            "http://127.0.0.1:8086/metrics4",
+        },
+        expected_none = {
+            "http://127.0.0.1:8086/metrics1",
+            "http://127.0.0.1:8086/metrics2",
+            "http://127.0.0.1:8085/metrics3",
+            "http://127.0.0.1:8085/metrics4",
+        },
+    },
+    ["listen_httpd"] = {
+        cfg = {
+            http = {
+                {
+                    listen = 8081,
+                    endpoints = {
+                        {
+                            path = "/metrics1",
+                            format = "json",
+                        },
+                        {
+                            path = "/metrics2",
+                            format = "prometheus",
+                        },
+                    },
+                },
+                {
+                    server = "additional",
+                    endpoints = {
+                        {
+                            path = "/metrics3",
+                            format = "json",
+                        },
+                        {
+                            path = "/metrics4",
+                            format = "prometheus",
+                        },
+                    },
+                },
+            },
+        },
+        mocks = {
+            {
+                module = "config",
+                method = "get",
+                implementation = config_get_return_httpd_config,
+            },
+        },
+        expected_json = {
+            "http://127.0.0.1:8081/metrics1",
+            "http://127.0.0.1:8086/metrics3",
+        },
+        expected_prometheus = {
+            "http://127.0.0.1:8081/metrics2",
+            "http://127.0.0.1:8086/metrics4",
+        },
+        expected_none = {
+            "http://127.0.0.1:8086/metrics1",
+            "http://127.0.0.1:8086/metrics2",
+            "http://127.0.0.1:8081/metrics3",
+            "http://127.0.0.1:8081/metrics4",
+        },
+    },
+    ["listen_httpd_collision"] = {
+        cfg = {
+            http = {
+                {
+                    listen = "127.0.0.1:8081",
+                    endpoints = {
+                        {
+                            path = "/metrics1",
+                            format = "json",
+                        },
+                        {
+                            path = "/metrics2",
+                            format = "prometheus",
+                        },
+                    },
+                },
+                {
+                    server = "127.0.0.1:8081",
+                    endpoints = {
+                        {
+                            path = "/metrics3",
+                            format = "json",
+                        },
+                        {
+                            path = "/metrics4",
+                            format = "prometheus",
+                        },
+                    },
+                },
+            },
+        },
+        mocks = {
+            {
+                module = "config",
+                method = "get",
+                implementation = config_get_return_httpd_config,
+            },
+        },
+        expected_json = {
+            "http://127.0.0.1:8081/metrics1",
+            "http://127.0.0.1:8087/metrics3",
+        },
+        expected_prometheus = {
+            "http://127.0.0.1:8081/metrics2",
+            "http://127.0.0.1:8087/metrics4",
+        },
+        expected_none = {
+            "http://127.0.0.1:8087/metrics1",
+            "http://127.0.0.1:8087/metrics2",
+            "http://127.0.0.1:8081/metrics3",
+            "http://127.0.0.1:8081/metrics4",
+        },
+    },
+}
 
-    assert_none("http://127.0.0.1:8082/metrics1")
-    assert_none("http://127.0.0.1:8082/metrics2")
-    assert_json("http://127.0.0.1:8082/metrics3")
-    assert_prometheus("http://127.0.0.1:8082/metrics4")
+for name, case in pairs(test_mixed_cases) do
+    g['test_mixed_' .. name] = function(cg)
+        if case.mocks ~= nil then
+            mocks.apply(case.mocks)
+        end
+
+        cg.role.apply(case.cfg)
+
+        for _, url in pairs(case.expected_json) do
+            assert_json(url)
+        end
+        for _, url in pairs(case.expected_prometheus) do
+            assert_prometheus(url)
+        end
+        for _, url in pairs(case.expected_none) do
+            assert_none(url)
+        end
+
+        if case.mocks ~= nil then
+            mocks.clear()
+        end
+    end
 end
 
-g.test_reapply_delete = function(cg)
-    cg.role.apply({
-        http = {
+local test_reapply_delete_cases = {
+    ["listen"] = {
+        apply_cases = {
             {
-                listen = 8081,
-                endpoints = {
-                    {
-                        path = "/metrics1",
-                        format = "json",
-                    },
-                    {
-                        path = "/metrics2",
-                        format = "prometheus",
+                cfg = {
+                    http = {
+                        {
+                            listen = 8081,
+                            endpoints = {
+                                {
+                                    path = "/metrics1",
+                                    format = "json",
+                                },
+                                {
+                                    path = "/metrics2",
+                                    format = "prometheus",
+                                },
+                            },
+                        },
+                        {
+                            listen = 8082,
+                            endpoints = {
+                                {
+                                    path = "/metrics/1",
+                                    format = "json",
+                                },
+                            },
+                        },
                     },
                 },
+                expected_json_urls = {
+                    "http://127.0.0.1:8081/metrics1",
+                    "http://127.0.0.1:8082/metrics/1",
+                },
+                expected_prometheus_urls = {
+                    "http://127.0.0.1:8081/metrics2"
+                },
+                expected_none_urls = {},
             },
             {
-                listen = 8082,
-                endpoints = {
-                    {
-                        path = "/metrics/1",
-                        format = "json",
+                cfg = {
+                    http = {
+                        {
+                            listen = 8081,
+                            endpoints = {
+                                {
+                                    path = "/metrics1",
+                                    format = "prometheus",
+                                },
+                            },
+                        },
                     },
+                },
+                expected_json_urls = {},
+                expected_prometheus_urls = {
+                    "http://127.0.0.1:8081/metrics1",
+                },
+                expected_none_urls = {
+                    "http://127.0.0.1:8081/metrics2",
+                    "http://127.0.0.1:8082/metrics/1",
                 },
             },
         },
-    })
-    assert_json("http://127.0.0.1:8081/metrics1")
-    assert_prometheus("http://127.0.0.1:8081/metrics2")
-    assert_json("http://127.0.0.1:8082/metrics/1")
+    },
+    ["httpd"] = {
+        apply_cases = {
+            {
+                cfg = {
+                    http = {
+                        {
+                            endpoints = {
+                                {
+                                    path = "/metrics1",
+                                    format = "json",
+                                },
+                                {
+                                    path = "/metrics2",
+                                    format = "prometheus",
+                                },
+                            },
+                        },
+                        {
+                            server = "additional",
+                            endpoints = {
+                                {
+                                    path = "/metrics/1",
+                                    format = "json",
+                                },
+                            },
+                        },
+                    },
+                },
+                expected_json_urls = {
+                    "http://127.0.0.1:8085/metrics1",
+                    "http://127.0.0.1:8086/metrics/1",
+                },
+                expected_prometheus_urls = {
+                    "http://127.0.0.1:8085/metrics2"
+                },
+                expected_none_urls = {},
+            },
+            {
+                cfg = {
+                    http = {
+                        {
+                            endpoints = {
+                                {
+                                    path = "/metrics1",
+                                    format = "prometheus",
+                                },
+                            },
+                        },
+                    },
+                },
+                expected_json_urls = {},
+                expected_prometheus_urls = {
+                    "http://127.0.0.1:8085/metrics1",
+                },
+                expected_none_urls = {
+                    "http://127.0.0.1:8085/metrics2",
+                    "http://127.0.0.1:8086/metrics/1",
+                },
+            },
+        },
+        mocks = {
+            {
+                module = "config",
+                method = "get",
+                implementation = config_get_return_httpd_config,
+            },
+        },
+    },
+    ["listen_httpd"] = {
+        apply_cases = {
+            {
+                cfg = {
+                    http = {
+                        {
+                            listen = 8081,
+                            endpoints = {
+                                {
+                                    path = "/metrics1",
+                                    format = "json",
+                                },
+                                {
+                                    path = "/metrics2",
+                                    format = "prometheus",
+                                },
+                            },
+                        },
+                        {
+                            server = "additional",
+                            endpoints = {
+                                {
+                                    path = "/metrics/1",
+                                    format = "json",
+                                },
+                            },
+                        },
+                    },
+                },
+                expected_json_urls = {
+                    "http://127.0.0.1:8081/metrics1",
+                    "http://127.0.0.1:8086/metrics/1",
+                },
+                expected_prometheus_urls = {
+                    "http://127.0.0.1:8081/metrics2"
+                },
+                expected_none_urls = {},
+            },
+            {
+                cfg = {
+                    http = {
+                        {
+                            listen = 8081,
+                            endpoints = {
+                                {
+                                    path = "/metrics1",
+                                    format = "prometheus",
+                                },
+                            },
+                        },
+                    },
+                },
+                expected_json_urls = {},
+                expected_prometheus_urls = {
+                    "http://127.0.0.1:8081/metrics1",
+                },
+                expected_none_urls = {
+                    "http://127.0.0.1:8081/metrics2",
+                    "http://127.0.0.1:8086/metrics/1",
+                },
+            },
+        },
+        mocks = {
+            {
+                module = "config",
+                method = "get",
+                implementation = config_get_return_httpd_config,
+            },
+        },
+    },
+    ["listen_httpd_collision"] = {
+        apply_cases = {
+            {
+                cfg = {
+                    http = {
+                        {
+                            listen = "127.0.0.1:8081",
+                            endpoints = {
+                                {
+                                    path = "/metrics1",
+                                    format = "json",
+                                },
+                                {
+                                    path = "/metrics2",
+                                    format = "prometheus",
+                                },
+                            },
+                        },
+                        {
+                            server = "127.0.0.1:8081",
+                            endpoints = {
+                                {
+                                    path = "/metrics/1",
+                                    format = "json",
+                                },
+                            },
+                        },
+                    },
+                },
+                expected_json_urls = {
+                    "http://127.0.0.1:8081/metrics1",
+                    "http://127.0.0.1:8087/metrics/1",
+                },
+                expected_prometheus_urls = {
+                    "http://127.0.0.1:8081/metrics2"
+                },
+                expected_none_urls = {},
+            },
+            {
+                cfg = {
+                    http = {
+                        {
+                            listen = "127.0.0.1:8081",
+                            endpoints = {
+                                {
+                                    path = "/metrics1",
+                                    format = "prometheus",
+                                },
+                            },
+                        },
+                    },
+                },
+                expected_json_urls = {},
+                expected_prometheus_urls = {
+                    "http://127.0.0.1:8081/metrics1",
+                },
+                expected_none_urls = {
+                    "http://127.0.0.1:8081/metrics2",
+                    "http://127.0.0.1:8087/metrics/1",
+                },
+            },
+        },
+        mocks = {
+            {
+                module = "config",
+                method = "get",
+                implementation = config_get_return_httpd_config,
+            },
+        },
+    },
+}
 
-    cg.role.apply({
-        http = {
-            {
-                listen = 8081,
-                endpoints = {
-                    {
-                        path = "/metrics1",
-                        format = "prometheus",
-                    },
-                },
-            },
-        },
-    })
-    assert_prometheus("http://127.0.0.1:8081/metrics1")
-    assert_none("http://127.0.0.1:8081/metrics2")
-    assert_none("http://127.0.0.1:8082/metrics/1")
+for name, case in pairs(test_reapply_delete_cases) do
+    g["test_reapply_delete_" .. name] = function (cg)
+        if case.mocks ~= nil then
+            mocks.apply(case.mocks)
+        end
+
+        for _, apply_iter in ipairs(case.apply_cases) do
+            cg.role.apply(apply_iter.cfg)
+            for _, url in ipairs(apply_iter.expected_json_urls) do
+                assert_json(url)
+            end
+            for _, url in ipairs(apply_iter.expected_prometheus_urls) do
+                assert_prometheus(url)
+            end
+            for _, url in ipairs(apply_iter.expected_none_urls) do
+                assert_none(url)
+            end
+        end
+
+        if case.mocks~= nil then
+            mocks.clear()
+        end
+    end
 end
 
-g.test_reapply_add = function(cg)
-    cg.role.apply({
-        http = {
+local test_reapply_add_cases = {
+    ["listen"] = {
+        apply_cases = {
             {
-                listen = 8081,
-                endpoints = {
-                    {
-                        path = "/metrics1",
-                        format = "prometheus",
+                cfg = {
+                    http = {
+                        {
+                            listen = 8081,
+                            endpoints = {
+                                {
+                                    path = "/metrics1",
+                                    format = "prometheus",
+                                },
+                            },
+                        },
                     },
                 },
+                expected_json_urls = {},
+                expected_prometheus_urls = {
+                    "http://127.0.0.1:8081/metrics1"
+                },
+                expected_none_urls = {
+                    "http://127.0.0.1:8081/metrics2",
+                    "http://127.0.0.1:8082/metrics/1",
+                },
+            },
+            {
+                cfg = {
+                    http = {
+                        {
+                            listen = 8081,
+                            endpoints = {
+                                {
+                                    path = "/metrics1",
+                                    format = "json",
+                                },
+                                {
+                                    path = "/metrics2",
+                                    format = "prometheus",
+                                },
+                            },
+                        },
+                        {
+                            listen = 8082,
+                            endpoints = {
+                                {
+                                    path = "/metrics/1",
+                                    format = "json",
+                                },
+                            },
+                        },
+                    },
+                },
+                expected_json_urls = {
+                    "http://127.0.0.1:8081/metrics1",
+                    "http://127.0.0.1:8082/metrics/1",
+                },
+                expected_prometheus_urls = {
+                    "http://127.0.0.1:8081/metrics2",
+                },
+                expected_none_urls = {},
             },
         },
-    })
-    assert_prometheus("http://127.0.0.1:8081/metrics1")
-    assert_none("http://127.0.0.1:8081/metrics2")
-    assert_none("http://127.0.0.1:8082/metrics/1")
+    },
+    ["httpd"] = {
+        apply_cases = {
+            {
+                cfg = {
+                    http = {
+                        {
+                            endpoints = {
+                                {
+                                    path = "/metrics1",
+                                    format = "prometheus",
+                                },
+                            },
+                        },
+                    },
+                },
+                expected_json_urls = {},
+                expected_prometheus_urls = {
+                    "http://127.0.0.1:8085/metrics1"
+                },
+                expected_none_urls = {
+                    "http://127.0.0.1:8085/metrics2",
+                    "http://127.0.0.1:8086/metrics/1",
+                },
+            },
+            {
+                cfg = {
+                    http = {
+                        {
+                            endpoints = {
+                                {
+                                    path = "/metrics1",
+                                    format = "json",
+                                },
+                                {
+                                    path = "/metrics2",
+                                    format = "prometheus",
+                                },
+                            },
+                        },
+                        {
+                            server = "additional",
+                            endpoints = {
+                                {
+                                    path = "/metrics/1",
+                                    format = "json",
+                                },
+                            },
+                        },
+                    },
+                },
+                expected_json_urls = {
+                    "http://127.0.0.1:8085/metrics1",
+                    "http://127.0.0.1:8086/metrics/1",
+                },
+                expected_prometheus_urls = {
+                    "http://127.0.0.1:8085/metrics2",
+                },
+                expected_none_urls = {},
+            },
+        },
+        mocks = {
+            {
+                module = "config",
+                method = "get",
+                implementation = config_get_return_httpd_config,
+            },
+        },
+    },
+}
 
-    cg.role.apply({
-        http = {
-            {
-                listen = 8081,
-                endpoints = {
-                    {
-                        path = "/metrics1",
-                        format = "json",
-                    },
-                    {
-                        path = "/metrics2",
-                        format = "prometheus",
-                    },
-                },
-            },
-            {
-                listen = 8082,
-                endpoints = {
-                    {
-                        path = "/metrics/1",
-                        format = "json",
-                    },
-                },
-            },
-        },
-    })
-    assert_json("http://127.0.0.1:8081/metrics1")
-    assert_prometheus("http://127.0.0.1:8081/metrics2")
-    assert_json("http://127.0.0.1:8082/metrics/1")
+for name, case in pairs(test_reapply_add_cases) do
+    g["test_reapply_add_" .. name] = function (cg)
+        if case.mocks ~= nil then
+            mocks.apply(case.mocks)
+        end
+
+        for _, apply_iter in ipairs(case.apply_cases) do
+            cg.role.apply(apply_iter.cfg)
+            for _, url in ipairs(apply_iter.expected_json_urls) do
+                assert_json(url)
+            end
+            for _, url in ipairs(apply_iter.expected_prometheus_urls) do
+                assert_prometheus(url)
+            end
+            for _, url in ipairs(apply_iter.expected_none_urls) do
+                assert_none(url)
+            end
+        end
+
+        if case.mocks~= nil then
+            mocks.clear()
+        end
+    end
 end
 
-g.test_stop = function(cg)
-    cg.role.apply({
-        http = {
-            {
-                listen = 8081,
-                endpoints = {
-                    {
-                        path = "/metrics1",
-                        format = "json",
+local test_stop_cases = {
+    ['listen'] = {
+        cfg = {
+            http = {
+                {
+                    listen = 8081,
+                    endpoints = {
+                        {
+                            path = "/metrics1",
+                            format = "json",
+                        },
                     },
                 },
             },
         },
-    })
-    assert_json("http://127.0.0.1:8081/metrics1")
+        expected_json_url = "http://127.0.0.1:8081/metrics1",
+        expected_none_url = "http://127.0.0.1:8082/metrics/1",
+    },
+    ['httpd'] = {
+        cfg = {
+            http = {
+                {
+                    endpoints = {
+                        {
+                            path = "/metrics1",
+                            format = "json",
+                        },
+                    },
+                },
+            },
+        },
+        mocks = {
+            {
+                module = "config",
+                method = "get",
+                implementation = config_get_return_httpd_config,
+            },
+        },
+        expected_json_url = "http://127.0.0.1:8085/metrics1",
+        expected_none_url = "http://127.0.0.1:8086/metrics/1",
+    },
+}
 
-    cg.role.stop()
-    assert_none("http://127.0.0.1:8082/metrics/1")
+for name, case in pairs(test_stop_cases) do
+    g['test_stop_' .. name] = function(cg)
+        if case.mocks ~= nil then
+            mocks.apply(case.mocks)
+        end
+
+        cg.role.apply(case.cfg)
+        assert_json(case.expected_json_url)
+
+        cg.role.stop()
+        assert_none(case.expected_none_url)
+
+        if case.mocks ~= nil then
+            mocks.clear()
+        end
+    end
 end
 
-g.test_endpoint_and_slashes = function(cg)
-    cg.role.apply({
-        http = {
-            {
-                listen = 8081,
-                endpoints = {
-                    {
-                        path = "/endpoint",
-                        format = "json",
-                    },
-                    {
-                        path = "/endpoint/2/",
-                        format = "json",
+local test_endpoint_and_slashes_cases = {
+    ['listen'] = {
+        cfg = {
+            http = {
+                {
+                    listen = 8081,
+                    endpoints = {
+                        {
+                            path = "/endpoint",
+                            format = "json",
+                        },
+                        {
+                            path = "/endpoint/2/",
+                            format = "json",
+                        },
                     },
                 },
             },
         },
-    })
-    assert_json("http://127.0.0.1:8081/endpoint")
-    assert_json("http://127.0.0.1:8081/endpoint/")
-    assert_json("http://127.0.0.1:8081/endpoint/2")
-    assert_json("http://127.0.0.1:8081/endpoint/2/")
+        expected_json_urls = {
+            "http://127.0.0.1:8081/endpoint",
+            "http://127.0.0.1:8081/endpoint/",
+            "http://127.0.0.1:8081/endpoint/2",
+            "http://127.0.0.1:8081/endpoint/2/",
+        },
+    },
+    ['httpd'] = {
+        cfg = {
+            http = {
+                {
+                    endpoints = {
+                        {
+                            path = "/endpoint",
+                            format = "json",
+                        },
+                        {
+                            path = "/endpoint/2/",
+                            format = "json",
+                        },
+                    },
+                },
+            },
+        },
+        expected_json_urls = {
+            "http://127.0.0.1:8085/endpoint",
+            "http://127.0.0.1:8085/endpoint/",
+            "http://127.0.0.1:8085/endpoint/2",
+            "http://127.0.0.1:8085/endpoint/2/",
+        },
+        mocks = {
+            {
+                module = "config",
+                method = "get",
+                implementation = config_get_return_httpd_config,
+            },
+        },
+    },
+}
+
+for name, case in pairs(test_endpoint_and_slashes_cases) do
+    g['test_endpoint_and_slashes_test_' .. name] = function(cg)
+        if case.mocks ~= nil then
+            mocks.apply(case.mocks)
+        end
+
+        cg.role.apply(case.cfg)
+        for _, url in pairs(case.expected_json_urls) do
+            assert_json(url)
+        end
+
+        if case.mocks ~= nil then
+            mocks.clear()
+        end
+    end
 end

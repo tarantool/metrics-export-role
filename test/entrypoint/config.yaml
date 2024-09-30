@@ -9,8 +9,13 @@ groups:
       replicaset-001:
         instances:
           master:
-            roles: [roles.metrics-export]
+            roles: [roles.httpd, roles.metrics-export]
             roles_cfg:
+              roles.httpd:
+                default:
+                  listen: 8085
+                additional:
+                  listen: '127.0.0.1:8086'
               roles.metrics-export:
                 http:
                 - listen: 8081
@@ -26,6 +31,21 @@ groups:
                   - path: /metrics/json/
                     format: json
                   - path: /metrics/observed/prometheus
+                    format: prometheus
+                    metrics:
+                      enabled: true
+                - endpoints:
+                  - path: /metrics/prometheus
+                    format: prometheus
+                  - path: /metrics/json
+                    format: json
+                - server: 'additional'
+                  endpoints:
+                  - path: /metrics/prometheus
+                    format: prometheus
+                  - path: /metrics/json
+                    format: json
+                  - path: /metrics/observed/prometheus/1
                     format: prometheus
                     metrics:
                       enabled: true

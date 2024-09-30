@@ -99,13 +99,25 @@ g.test_endpoints = function()
     assert_json("http://127.0.0.1:8081/metrics/json/")
     assert_prometheus("http://127.0.0.1:8081/metrics/prometheus")
     assert_prometheus("http://127.0.0.1:8081/metrics/prometheus/")
+    assert_not_observed("http://127.0.0.1:8081", "/metrics/prometheus")
 
     assert_prometheus("http://127.0.0.1:8082/metrics/prometheus")
     assert_prometheus("http://127.0.0.1:8082/metrics/prometheus/")
     assert_json("http://127.0.0.1:8082/metrics/json")
     assert_json("http://127.0.0.1:8082/metrics/json/")
-
-    assert_not_observed("http://127.0.0.1:8081", "/metrics/prometheus")
     assert_not_observed("http://127.0.0.1:8082", "/metrics/prometheus")
     assert_observed("http://127.0.0.1:8082", "/metrics/observed/prometheus")
+
+    assert_prometheus("http://127.0.0.1:8085/metrics/prometheus")
+    assert_prometheus("http://127.0.0.1:8085/metrics/prometheus/")
+    assert_json("http://127.0.0.1:8085/metrics/json")
+    assert_json("http://127.0.0.1:8085/metrics/json/")
+    assert_not_observed("http://127.0.0.1:8085", "/metrics/prometheus")
+
+    assert_prometheus("http://127.0.0.1:8086/metrics/prometheus")
+    assert_prometheus("http://127.0.0.1:8086/metrics/prometheus/")
+    assert_json("http://127.0.0.1:8086/metrics/json")
+    assert_json("http://127.0.0.1:8086/metrics/json/")
+    assert_not_observed("http://127.0.0.1:8086", "/metrics/prometheus")
+    assert_observed("http://127.0.0.1:8086", "/metrics/observed/prometheus/1")
 end

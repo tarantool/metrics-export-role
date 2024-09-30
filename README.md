@@ -28,7 +28,8 @@ tt build
 Be careful, it is better to use a latest release version.
 
 2. Enable and [configure](https://www.tarantool.io/en/doc/latest/concepts/configuration/)
-the `roles.metrics-export` role for a Tarantool 3 instance.
+the `roles.metrics-export` role for a Tarantool 3 instance. Use [httpd role](https://github.com/tarantool/http?tab=readme-ov-file#roles)
+or `listen` field in to configure server instances. See below to get more detailed information about it.
 
 ```yaml
 groups:
@@ -37,10 +38,22 @@ groups:
       replicaset-001:
         instances:
           master:
-            roles: [roles.metrics-export]
+            roles: [roles.httpd, roles.metrics-export]
             roles_cfg:
+              roles.httpd:
+                default:
+                - listen: '127.0.0.1:8083'
+                additional:
+                - listen: 8084
               roles.metrics-export:
                 http:
+                - endpoints:
+                  - path: /metrics/json
+                    format: json
+                - server: 'additional'
+                  endpoints:
+                  - path: /metrics/prometheus
+                    format: prometheus
                 - listen: 8081
                   endpoints:
                   - path: /metrics/json
@@ -55,9 +68,13 @@ groups:
                     format: json
 ```
 
-In the example above, we configure two HTTP servers on `0.0.0.0:8081` and
-`my_host:8082`. The servers will be running on the `master` Tarantool
-instance.
+In the example above, we configure four HTTP servers. There are serveral server fields:
+
+* first with `server` field which refers to an `additional` server in the `httpd` role;
+* the next one, with no info about server, is configured with `default` name in `httpd` config;
+* and the last two `listen` fields (`0.0.0.0:8081` and `my_host:8082`) that are listed directly.
+
+The servers will be running on the `master` Tarantool instance.
 
 Each server has two endpoints:
 
@@ -103,10 +120,46 @@ set `metrics.enabled` to `true`:
 
 For now only `json` and `prometheus` formats are supported.
 
+### Integration with httpd role
+
+Use [httpd role](https://github.com/tarantool/http?tab=readme-ov-file#roles) as well.
+To enable it, you need to fill `server` field with name that was configured in `roles.httpd` block
+instead of `listen` like it was earlier. To configure `httpd` role you need to write block in roles_cfg
+section:
+
+```yaml
+roles_cfg:
+  roles.httpd:
+    default:
+    - listen: 8081
+    additional:
+    - listen: '127.0.0.1:8082'
+```
+
+After it you can use `server` name in `roles.metrics-export` block. If `server` and `listen` names
+wasn't provided, the `default` server from `httpd` role configuration will be used:
+
+```yaml
+roles.metrics-export:
+  http:
+  - server: 'additional'
+    endpoints:
+    ...
+  - endpoints:
+    ...
+```
+
+So now it is possible to mix `server` and `listen` parameteres.
+
 Let's put it all together now:
 
 ```yaml
 roles_cfg:
+  roles.httpd:
+    default:
+    - listen: 8081
+    additional:
+    - listen: '127.0.0.1:8082'
   roles.metrics-export:
     http:
     - listen: 8081
@@ -119,6 +172,15 @@ roles_cfg:
       endpoints:
       - path: /metrics/
         format: json
+        metrics:
+          enabled: true
+    - server: 'additional'
+      endpoints:
+      - path: /metrics
+        format: json
+    - endpoints:
+      - path: /metrics
+        format: prometheus
         metrics:
           enabled: true
 ```
