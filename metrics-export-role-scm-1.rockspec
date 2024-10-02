@@ -10,7 +10,7 @@ description = {
     summary = "The Tarantool 3 role for metrics export via HTTP",
     homepage = "https://github.com/tarantool/metrics-export-role",
     license = "BSD2",
-    maintainer = "Fedor Terekhin <fedor.terekhin@tarantool.org>"
+    maintainer = "Ivan Milchenko <ivan.milchenko.92@mail.ru>"
 }
 
 dependencies = {
