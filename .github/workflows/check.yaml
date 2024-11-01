@@ -1,0 +1,36 @@
+name: Run static analysis
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  run-static-analysis:
+    if: |
+      github.event_name == 'push' ||
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.head.repo.full_name != github.repository
+
+    runs-on: ubuntu-22.04
+
+    steps:
+    - uses: actions/checkout@master
+
+    - name: Setup Tarantool CE
+      uses: tarantool/setup-tarantool@v3
+      with:
+        tarantool-version: '3.2.0'
+
+    - name: Setup tt
+      run: |
+        curl -L https://tarantool.io/release/3/installer.sh | sudo bash
+        sudo apt install -y tt
+        tt version
+
+    - name: Setup luacheck
+      run: make deps depname=lint
+
+    - run: echo $PWD/.rocks/bin >> $GITHUB_PATH
+
+    - name: Run static analysis
+      run: make check

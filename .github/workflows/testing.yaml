@@ -95,12 +95,10 @@ jobs:
           tt version
 
       - name: Install requirements
-        run: make deps
+        run: make deps depname=coverage
         if: steps.cache-rocks.outputs.cache-hit != 'true'
 
       - run: echo $PWD/.rocks/bin >> $GITHUB_PATH
-
-      - run: make check
 
       - run: make test
 
