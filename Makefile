@@ -51,9 +51,24 @@ coveralls: $(LUACOV_STATS)
 	echo "Send code coverage data to the coveralls.io service"
 	luacov-coveralls --include ^roles --verbose --repo-token ${GITHUB_TOKEN}
 
-deps:
+deps-test:
 	tt rocks install luatest 1.0.1
-	tt rocks install luacheck 0.26.0
+
+deps-coverage: deps-test
 	tt rocks install luacov 0.13.0-1
 	tt rocks install luacov-coveralls 0.2.3-1 --server=http://luarocks.org
+
+deps-lint:
+	tt rocks install luacheck 0.26.0
+
+deps:
+ifeq ($(depname), test)
+	$(MAKE) deps-test
+else ifeq ($(depname), coverage)
+	$(MAKE) deps-coverage
+else ifeq ($(depname), lint)
+	$(MAKE) deps-lint
+else
+	$(MAKE) deps-coverage deps-lint
+endif
 	tt rocks make
