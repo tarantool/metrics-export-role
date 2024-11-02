@@ -27,63 +27,19 @@ jobs:
 
     runs-on: ubuntu-22.04
     steps:
+      - name: Clone the module
+        uses: actions/checkout@v3
+
       - name: Setup tt
         run: |
           curl -L https://tarantool.io/release/3/installer.sh | bash
           sudo apt install -y tt
           tt version
 
-      - name: Install tarantool ${{ matrix.tarantool }}
-        if: startsWith(matrix.tarantool, 'debug') != true
-        run: tt install tarantool ${{ matrix.tarantool }} --dynamic
-
-      - name: Create variables for Tarantool ${{ matrix.tarantool }}
-        if: startsWith(matrix.tarantool, 'debug')
-        run: |
-          branch=$(echo ${{ matrix.tarantool }} | cut -d- -f2)
-          commit_hash=$(git ls-remote https://github.com/tarantool/tarantool.git --branch ${branch} | head -c 8)
-          echo "TNT_BRANCH=${branch}" >> $GITHUB_ENV
-          echo "VERSION_POSTFIX=-${commit_hash}" >> $GITHUB_ENV
-        shell: bash
-
-      - name: Cache tarantool build
-        if: startsWith(matrix.tarantool, 'debug')
-        id: cache-tnt-debug
-        uses: actions/cache@v3
-        with:
-          path: ${{ env.TNT_DEBUG_PATH }}
-          key: cache-tnt-${{ matrix.tarantool }}${{ env.VERSION_POSTFIX }}
-
-      - name: Clone tarantool ${{ matrix.tarantool }}
-        if: startsWith(matrix.tarantool, 'debug') && steps.cache-tnt-debug.outputs.cache-hit != 'true'
-        uses: actions/checkout@v3
-        with:
-          repository: tarantool/tarantool
-          ref: ${{ env.TNT_BRANCH }}
-          path: tarantool
-          fetch-depth: 0
-          submodules: true
-
-      - name: Build tarantool ${{ matrix.tarantool }}
-        if: startsWith(matrix.tarantool, 'debug') && steps.cache-tnt-debug.outputs.cache-hit != 'true'
-        run: |
-          sudo apt-get -y install git build-essential cmake make zlib1g-dev \
-            libreadline-dev libncurses5-dev libssl-dev \
-            libunwind-dev libicu-dev python3 python3-yaml \
-            python3-six python3-gevent
-          cd ${GITHUB_WORKSPACE}/tarantool
-          mkdir build && cd build
-          cmake .. -DCMAKE_BUILD_TYPE=Debug -DENABLE_DIST=ON
-          make
-          make DESTDIR=${TNT_DEBUG_PATH} install
-
-      - name: Install tarantool ${{ matrix.tarantool }}
-        if: startsWith(matrix.tarantool, 'debug')
-        run: |
-          sudo cp -rvP ${TNT_DEBUG_PATH}/usr/local/* /usr/local/
-
-      - name: Clone the module
-        uses: actions/checkout@v3
+      - name: Install Tarantool
+        uses: ./.github/actions/install-tarantool
+        with: 
+          tarantool: ${{ matrix.tarantool }}
 
       - name: Cache rocks
         uses: actions/cache@v3

@@ -1,0 +1,62 @@
+name: "Download and install Tarantool"
+description: "Download Tarantool with provided version using 'tarantool/setup-tarantool' action
+              or install and build it manually with debug branch."
+
+inputs:
+  tarantool:
+    required: true
+    type: string
+  
+runs:
+  using: "composite"
+  steps:
+    - name: Install tarantool ${{ inputs.tarantool }} (dynamic)
+      if: startsWith(inputs.tarantool, 'debug') != true
+      shell: bash
+      run: tt install tarantool ${{ inputs.tarantool }} --dynamic
+
+    - name: Create variables for Tarantool ${{ inputs.tarantool }}
+      if: startsWith(inputs.tarantool, 'debug')
+      run: |
+        branch=$(echo ${{ inputs.tarantool }} | cut -d- -f2)
+        commit_hash=$(git ls-remote https://github.com/tarantool/tarantool.git --branch ${branch} | head -c 8)
+        echo "TNT_BRANCH=${branch}" >> $GITHUB_ENV
+        echo "VERSION_POSTFIX=-${commit_hash}" >> $GITHUB_ENV
+      shell: bash
+
+    - name: Cache tarantool build
+      if: startsWith(inputs.tarantool, 'debug')
+      id: cache-tnt-debug
+      uses: actions/cache@v3
+      with:
+        path: ${{ env.TNT_DEBUG_PATH }}
+        key: cache-tnt-${{ inputs.tarantool }}${{ env.VERSION_POSTFIX }}
+
+    - name: Clone tarantool ${{ inputs.tarantool }}
+      if: startsWith(inputs.tarantool, 'debug') && steps.cache-tnt-debug.outputs.cache-hit != 'true'
+      uses: actions/checkout@v3
+      with:
+        repository: tarantool/tarantool
+        ref: ${{ env.TNT_BRANCH }}
+        path: tarantool
+        fetch-depth: 0
+        submodules: true
+
+    - name: Build tarantool ${{ inputs.tarantool }}
+      if: startsWith(inputs.tarantool, 'debug') && steps.cache-tnt-debug.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        sudo apt-get -y install git build-essential cmake make zlib1g-dev \
+          libreadline-dev libncurses5-dev libssl-dev \
+          libunwind-dev libicu-dev python3 python3-yaml \
+          python3-six python3-gevent
+        cd ${GITHUB_WORKSPACE}/tarantool
+        mkdir build && cd build
+        cmake .. -DCMAKE_BUILD_TYPE=Debug -DENABLE_DIST=ON
+        make
+        make DESTDIR=${TNT_DEBUG_PATH} install
+
+    - name: Install tarantool ${{ inputs.tarantool }} (debug)
+      if: startsWith(inputs.tarantool, 'debug')
+      shell: bash
+      run: sudo cp -rvP ${TNT_DEBUG_PATH}/usr/local/* /usr/local/
