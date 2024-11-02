@@ -206,10 +206,30 @@ git clone https://github.com/tarantool/metrics-export-role
 cd metrics-export-role
 ```
 
-After that you need to install dependencies (`tt` is required):
+After that you need to install dependencies (`tt` is required).
+To do it, run:
 
 ```shell
 make deps
+```
+
+It's possible to install requirements only for running tests
+or linter check. To install only tests requirements, run:
+
+```shell
+make deps depname=test
+```
+
+To install tests with coverage requirements, run:
+
+```shell
+make deps depname=coverage
+```
+
+To install linter checks, run:
+
+```shell
+make deps depname=lint
 ```
 
 At this point you could run tests (`tarantool` 3 is required):
