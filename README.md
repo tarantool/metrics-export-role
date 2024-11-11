@@ -42,9 +42,9 @@ groups:
             roles_cfg:
               roles.httpd:
                 default:
-                - listen: '127.0.0.1:8083'
+                  listen: '127.0.0.1:8083'
                 additional:
-                - listen: 8084
+                  listen: 8084
               roles.metrics-export:
                 http:
                 - endpoints:
@@ -131,9 +131,9 @@ section:
 roles_cfg:
   roles.httpd:
     default:
-    - listen: 8081
+      listen: 8081
     additional:
-    - listen: '127.0.0.1:8082'
+      listen: '127.0.0.1:8082'
 ```
 
 After it you can use `server` name in `roles.metrics-export` block. If `server` and `listen` names
@@ -157,9 +157,9 @@ Let's put it all together now:
 roles_cfg:
   roles.httpd:
     default:
-    - listen: 8081
+      listen: 8081
     additional:
-    - listen: '127.0.0.1:8082'
+      listen: '127.0.0.1:8082'
   roles.metrics-export:
     http:
     - listen: 8081
