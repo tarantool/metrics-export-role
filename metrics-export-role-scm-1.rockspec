@@ -16,7 +16,7 @@ description = {
 dependencies = {
     "lua >= 5.1",
     "tarantool >= 3.0.2",
-    "http >= 1.5.0",
+    "http >= 1.7.0",
 }
 
 build = {
