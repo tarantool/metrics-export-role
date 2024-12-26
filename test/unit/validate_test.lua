@@ -540,6 +540,95 @@ local error_cases = {
         },
         err = "server with name not_existing_server not found in httpd role config",
     },
+    ["ssl_key_file_not_string"] = {
+        cfg = {
+            http = {
+                {
+                    listen = "localhost:123",
+                    ssl_key_file = {},
+                },
+            },
+        },
+        err = "ssl_key_file sould be a string, got table",
+    },
+    ["ssl_cert_file_not_string"] = {
+        cfg = {
+            http = {
+                {
+                    listen = "localhost:123",
+                    ssl_cert_file = {},
+                },
+            },
+        },
+        err = "ssl_cert_file sould be a string, got table",
+    },
+    ["ssl_ca_file_not_string"] = {
+        cfg = {
+            http = {
+                {
+                    listen = "localhost:123",
+                    ssl_ca_file = {},
+                },
+            },
+        },
+        err = "ssl_ca_file sould be a string, got table",
+    },
+    ["ssl_ciphers_file_not_string"] = {
+        cfg = {
+            http = {
+                {
+                    listen = "localhost:123",
+                    ssl_ciphers = {},
+                },
+            },
+        },
+        err = "ssl_ciphers_file sould be a string, got table",
+    },
+    ["ssl_password_not_string"] = {
+        cfg = {
+            http = {
+                {
+                    listen = "localhost:123",
+                    ssl_password = {},
+                },
+            },
+        },
+        err = "ssl_password sould be a string, got table",
+    },
+    ["ssl_password_file_not_string"] = {
+        cfg = {
+            http = {
+                {
+                    listen = "localhost:123",
+                    ssl_password_file = {},
+                },
+            },
+        },
+        err = "ssl_password_file sould be a string, got table",
+    },
+    ["ssl_params_with_tls_opts"] = {
+        cfg = {
+            http = {
+                {
+                    server = "default",
+                    ssl_key_file = "/path/to/key_file",
+                    ssl_cert_file = "/path/to/cert_file",
+                    ssl_ca_file = "/path/to/ca_file",
+                    ssl_ciphers = "ciphers",
+                    ssl_password = "ssl_password",
+                    ssl_password_file = "ssl_password_file",
+                },
+            }
+        },
+        mocks = {
+            {
+                module = "config",
+                method = "get",
+                implementation = config_get_return_httpd_config,
+            },
+        },
+        err = "tls options are availabe only with 'listen' parameter",
+    },
 }
 
 for name, case in pairs(error_cases) do
@@ -787,6 +876,21 @@ local ok_cases = {
                 module = "config",
                 method = "get",
                 implementation = config_get_return_httpd_config,
+            },
+        },
+    },
+    ["listen_ssl_params_ok"] = {
+        cfg = {
+            http = {
+                {
+                    listen = "localhost:123",
+                    ssl_key_file = "/path/to/key_file",
+                    ssl_cert_file = "/path/to/cert_file",
+                    ssl_ca_file = "/path/to/ca_file",
+                    ssl_ciphers = "ciphers",
+                    ssl_password = "ssl_password",
+                    ssl_password_file = "ssl_password_file",
+                },
             },
         },
     },

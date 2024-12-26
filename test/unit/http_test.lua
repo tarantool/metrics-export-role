@@ -1,7 +1,8 @@
 local json = require('json')
-local http_client = require('http.client')
+local http_client = require('http.client'):new()
 local metrics = require('metrics')
 local mocks = require('test.helpers.mocks')
+local fio = require('fio')
 
 local t = require('luatest')
 local g = t.group()
@@ -44,14 +45,14 @@ g.after_each(function(cg)
     metrics.registry:unregister(cg.counter)
 end)
 
-local function assert_none(uri)
-    local response = http_client.get(uri)
+local function assert_none(uri, tls_opts)
+    local response = http_client:get(uri, tls_opts)
     t.assert_not_equals(response.status, 200)
     t.assert_not(response.body)
 end
 
-local function assert_json(uri)
-    local response = http_client.get(uri)
+local function assert_json(uri, tls_opts)
+    local response = http_client:get(uri, tls_opts)
     t.assert(response.body)
 
     local data = response.body
@@ -68,8 +69,8 @@ local function assert_json(uri)
     })
 end
 
-local function assert_prometheus(uri)
-    local response = http_client.get(uri)
+local function assert_prometheus(uri, tls_opts)
+    local response = http_client:get(uri, tls_opts)
     t.assert(response.body)
 
     local data = response.body
@@ -1013,6 +1014,125 @@ for name, case in pairs(test_endpoint_and_slashes_cases) do
         cg.role.apply(case.cfg)
         for _, url in pairs(case.expected_json_urls) do
             assert_json(url)
+        end
+
+        if case.mocks ~= nil then
+            mocks.clear()
+        end
+    end
+end
+
+local test_tls_cases = {
+    ["listen_tls_basic"] = {
+        cfg = {
+            http = {
+                {
+                    listen = 8081,
+                    ssl_key_file = fio.pathjoin("test", "ssl_data", "server.key"),
+                    ssl_cert_file = fio.pathjoin("test", "ssl_data", "server.crt"),
+                    endpoints = {
+                        {
+                            path = "/metrics1",
+                            format = "json",
+                        },
+                    },
+                },
+            },
+        },
+        expected_json = {
+            "https://localhost:8081/metrics1",
+        },
+        client_tls_opts = {
+            ca_file = fio.pathjoin("test", "ssl_data", "ca.crt"),
+        },
+    },
+    ["listen_tls_encrypted_key_password_file"] = {
+        cfg = {
+            http = {
+                {
+                    listen = 8081,
+                    ssl_key_file = fio.pathjoin("test", "ssl_data", "server.enc.key"),
+                    ssl_cert_file = fio.pathjoin("test", "ssl_data", "server.crt"),
+                    ssl_password_file = fio.pathjoin("test", "ssl_data", "passwd"),
+                    endpoints = {
+                        {
+                            path = "/metrics1",
+                            format = "json",
+                        },
+                    },
+                },
+            },
+        },
+        expected_json = {
+            "https://localhost:8081/metrics1",
+        },
+        client_tls_opts = {
+            ca_file = fio.pathjoin("test", "ssl_data", "ca.crt"),
+        },
+    },
+    ["listen_tls_encrypted_key_password"] = {
+        cfg = {
+            http = {
+                {
+                    listen = 8081,
+                    ssl_key_file = fio.pathjoin("test", "ssl_data", "server.enc.key"),
+                    ssl_cert_file = fio.pathjoin("test", "ssl_data", "server.crt"),
+                    ssl_password = "1q2w3e",
+                    endpoints = {
+                        {
+                            path = "/metrics1",
+                            format = "json",
+                        },
+                    },
+                },
+            },
+        },
+        expected_json = {
+            "https://localhost:8081/metrics1",
+        },
+        client_tls_opts = {
+            ca_file = fio.pathjoin("test", "ssl_data", "ca.crt"),
+        },
+    },
+    ["listen_tls_ca"] = {
+        cfg = {
+            http = {
+                {
+                    listen = 8081,
+                    ssl_key_file = fio.pathjoin("test", "ssl_data", "server.key"),
+                    ssl_cert_file = fio.pathjoin("test", "ssl_data", "server.crt"),
+                    ssl_ca_file = fio.pathjoin("test", "ssl_data", "ca.crt"),
+                    ssl_ciphers = "ECDHE-RSA-AES256-GCM-SHA384",
+                    endpoints = {
+                        {
+                            path = "/metrics1",
+                            format = "json",
+                        },
+                    },
+                },
+            },
+        },
+        expected_json = {
+            "https://localhost:8081/metrics1",
+        },
+        client_tls_opts = {
+            ca_file = fio.pathjoin("test", "ssl_data", "ca.crt"),
+            ssl_cert = fio.pathjoin("test", 'ssl_data', 'client.crt'),
+            ssl_key = fio.pathjoin("test", 'ssl_data', 'client.key'),
+        },
+    },
+}
+
+for name, case in pairs(test_tls_cases) do
+    g['test_tls_listen_' .. name] = function(cg)
+        if case.mocks ~= nil then
+            mocks.apply(case.mocks)
+        end
+
+        cg.role.apply(case.cfg)
+
+        for _, url in pairs(case.expected_json) do
+            assert_json(url, case.client_tls_opts)
         end
 
         if case.mocks ~= nil then
