@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Support TLS for `listen` parameter (#26).
+
 ### Fixed
 
 - Update Tarantool dependency to `>=3.0.2` (#25).

@@ -49,6 +49,21 @@ groups:
                     format: prometheus
                     metrics:
                       enabled: true
+                - listen: 8087
+                  ssl_key_file: "ssl_data/server.enc.key"
+                  ssl_cert_file: "ssl_data/server.crt"
+                  ssl_ca_file: "ssl_data/ca.crt"
+                  ssl_ciphers: "ECDHE-RSA-AES256-GCM-SHA384"
+                  ssl_password_file: "ssl_data/passwords"
+                  endpoints:
+                  - path: /metrics/prometheus
+                    format: prometheus
+                  - path: /metrics/json/
+                    format: json
+                  - path: /metrics/observed/prometheus/1
+                    format: prometheus
+                    metrics:
+                      enabled: true
             iproto:
               listen:
                 - uri: '127.0.0.1:3313'

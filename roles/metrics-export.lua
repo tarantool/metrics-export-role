@@ -171,9 +171,52 @@ local function validate_http_node(node)
         error("http configuration node must be a table, got " .. type(node), 3)
     end
 
+    local is_tls = false
+
+    if node.ssl_key_file ~= nil then
+        is_tls = true
+        if type(node.ssl_key_file) ~= 'string' then
+            error("ssl_key_file sould be a string, got " .. type(node.ssl_key_file), 3)
+        end
+    end
+    if node.ssl_cert_file ~= nil then
+        is_tls = true
+        if type(node.ssl_cert_file) ~= 'string' then
+            error("ssl_cert_file sould be a string, got " .. type(node.ssl_cert_file), 3)
+        end
+    end
+    if node.ssl_ca_file ~= nil then
+        is_tls = true
+        if type(node.ssl_ca_file) ~= 'string' then
+            error("ssl_ca_file sould be a string, got " .. type(node.ssl_ca_file), 3)
+        end
+    end
+    if node.ssl_ciphers ~= nil then
+        is_tls = true
+        if type(node.ssl_ciphers) ~= 'string' then
+            error("ssl_ciphers_file sould be a string, got " .. type(node.ssl_ciphers), 3)
+        end
+    end
+    if node.ssl_password ~= nil then
+        is_tls = true
+        if type(node.ssl_password) ~= 'string' then
+            error("ssl_password sould be a string, got " .. type(node.ssl_password), 3)
+        end
+    end
+    if node.ssl_password_file ~= nil then
+        is_tls = true
+        if type(node.ssl_password_file) ~= 'string' then
+            error("ssl_password_file sould be a string, got " .. type(node.ssl_password_file), 3)
+        end
+    end
+
     if node.server ~= nil then
         if type(node.server) ~= 'string' then
             error("server configuration sould be a string, got " .. type(node.server), 3)
+        end
+
+        if is_tls then
+            error("tls options are availabe only with 'listen' parameter", 3)
         end
 
         if node.listen ~= nil then
@@ -315,7 +358,14 @@ local function apply_http(conf)
             if http_servers[tostring(target.value) .. tostring(target.is_httpd_role)] == nil then
                 local httpd
                 if node.listen ~= nil then
-                    httpd = http_server.new(host, port)
+                    httpd = http_server.new(host, port, {
+                        ssl_cert_file = node.ssl_cert_file,
+                        ssl_key_file = node.ssl_key_file,
+                        ssl_ca_file = node.ssl_ca_file,
+                        ssl_ciphers = node.ssl_ciphers,
+                        ssl_password = node.ssl_password,
+                        ssl_password_file = node.ssl_password_file
+                    })
                     httpd:start()
                 else
                     httpd = httpd_role.get_server(target.value)

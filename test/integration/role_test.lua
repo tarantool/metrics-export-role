@@ -1,7 +1,7 @@
 local fio = require('fio')
 local json = require('json')
 local helpers = require('test.helpers')
-local http_client = require('http.client')
+local http_client = require('http.client'):new()
 local server = require('test.helpers.server')
 
 local t = require('luatest')
@@ -17,6 +17,7 @@ g.before_each(function(cg)
 
     fio.copytree(".rocks", fio.pathjoin(cg.workdir, ".rocks"))
     fio.copytree("roles", fio.pathjoin(cg.workdir, "roles"))
+    fio.copytree(fio.pathjoin("test", "ssl_data"), fio.pathjoin(cg.workdir, "ssl_data"))
 
     cg.router = server:new({
         config_file = fio.abspath(fio.pathjoin('test', 'entrypoint', 'config.yaml')),
@@ -36,8 +37,8 @@ g.after_each(function(cg)
     fio.rmtree(cg.workdir)
 end)
 
-local function assert_json(uri)
-    local response = http_client.get(uri)
+local function assert_json(uri, tls_opts)
+    local response = http_client:get(uri, tls_opts)
     t.assert_equals(response.status, 200)
     t.assert(response.body)
 
@@ -53,8 +54,8 @@ local function assert_json(uri)
     t.assert(found)
 end
 
-local function assert_prometheus(uri)
-    local response = http_client.get(uri)
+local function assert_prometheus(uri, tls_opts)
+    local response = http_client:get(uri, tls_opts)
     t.assert_equals(response.status, 200)
     t.assert(response.body)
 
@@ -66,11 +67,11 @@ local function assert_prometheus(uri)
     t.assert_not(ok)
 end
 
-local function assert_observed(host, path)
+local function assert_observed(host, path, tls_opts)
     -- Trigger observation.
-    http_client.get(host .. path)
+    http_client:get(host .. path, tls_opts)
 
-    local response = http_client.get(host .. path)
+    local response = http_client:get(host .. path, tls_opts)
     t.assert_equals(response.status, 200)
     t.assert(response.body)
 
@@ -80,11 +81,11 @@ local function assert_observed(host, path)
     t.assert_not(ok)
 end
 
-local function assert_not_observed(host, path)
+local function assert_not_observed(host, path, tls_opts)
     -- Trigger observation.
-    http_client.get(host .. path)
+    http_client:get(host .. path, tls_opts)
 
-    local response = http_client.get(host .. path)
+    local response = http_client:get(host .. path, tls_opts)
     t.assert_equals(response.status, 200)
     t.assert(response.body)
 
@@ -120,4 +121,19 @@ g.test_endpoints = function()
     assert_json("http://127.0.0.1:8086/metrics/json/")
     assert_not_observed("http://127.0.0.1:8086", "/metrics/prometheus")
     assert_observed("http://127.0.0.1:8086", "/metrics/observed/prometheus/1")
+end
+
+g.test_endpoint_with_tls = function(cg)
+    local client_tls_opts = {
+        ca_file = fio.pathjoin(cg.workdir, 'ssl_data', 'ca.crt'),
+        ssl_cert = fio.pathjoin(cg.workdir, 'ssl_data', 'client.crt'),
+        ssl_key = fio.pathjoin(cg.workdir, 'ssl_data', 'client.key'),
+    }
+
+    assert_prometheus("https://localhost:8087/metrics/prometheus", client_tls_opts)
+    assert_prometheus("https://localhost:8087/metrics/prometheus/", client_tls_opts)
+    assert_json("https://localhost:8087/metrics/json", client_tls_opts)
+    assert_json("https://localhost:8087/metrics/json/", client_tls_opts)
+    assert_not_observed("https://localhost:8087", "/metrics/prometheus", client_tls_opts)
+    assert_observed("https://localhost:8087", "/metrics/observed/prometheus/1", client_tls_opts)
 end

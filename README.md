@@ -185,6 +185,44 @@ roles_cfg:
           enabled: true
 ```
 
+### TLS support
+
+It is possible to configure `metrics-export-role` with TLS options for
+`listen` parameter as well. To enable it, provide at least one of the
+following parameters:
+
+    * `ssl_cert_file` is a path to the SSL cert file, mandatory;
+    * `ssl_key_file` is a path to the SSL key file, mandatory;
+    * `ssl_ca_file` is a path to the SSL CA file, optional;
+    * `ssl_ciphers` is a colon-separated list of SSL ciphers, optional;
+    * `ssl_password` is a password for decrypting SSL private key, optional;
+    * `ssl_password_file` is a SSL file with key for decrypting SSL private key, optional.
+
+See an example below:
+
+```yaml
+roles_cfg:
+  roles.httpd:
+    default:
+      listen: 8081
+    additional:
+      listen: '127.0.0.1:8082'
+  roles.metrics-export:
+    http:
+    - listen: 8081
+      ssl_cert_file: "/path/to/ssl_cert_file"
+      ssl_key_file: "/path/to/ssl_key_file"
+      ssl_ca_file: "/path/to/ssl_ca_file"
+      ssl_ciphers: "/path/to/ssl_ciphers"
+      ssl_password: "/path/to/ssl_password"
+      ssl_password_file: "/path/to/ssl_password_file"
+      endpoints:
+      - path: /metrics
+        format: json
+      - path: /metrics/prometheus/
+        format: prometheus
+```
+
 With this configuration, metrics can be obtained on this machine with the
 Tarantool instance as follows:
 
