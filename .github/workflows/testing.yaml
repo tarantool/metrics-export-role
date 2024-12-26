@@ -27,11 +27,15 @@ jobs:
 
     runs-on: ubuntu-22.04
     steps:
+      - name: Setup tt
+        run: |
+          curl -L https://tarantool.io/release/3/installer.sh | bash
+          sudo apt install -y tt
+          tt version
+
       - name: Install tarantool ${{ matrix.tarantool }}
         if: startsWith(matrix.tarantool, 'debug') != true
-        uses: tarantool/setup-tarantool@v3
-        with:
-          tarantool-version: ${{ matrix.tarantool }}
+        run: tt install tarantool ${{ matrix.tarantool }} --dynamic
 
       - name: Create variables for Tarantool ${{ matrix.tarantool }}
         if: startsWith(matrix.tarantool, 'debug')
@@ -87,12 +91,6 @@ jobs:
         with:
           path: .rocks/
           key: "cache-rocks-${{ matrix.tarantool }}${{ env.VERSION_POSTFIX }}"
-
-      - name: Setup tt
-        run: |
-          curl -L https://tarantool.io/release/3/installer.sh | bash
-          sudo apt install -y tt
-          tt version
 
       - name: Install requirements
         run: make deps depname=coverage
