@@ -10,3 +10,4 @@ tags
 doc/apidoc/
 .idea
 *.swp
+.DS_Store
