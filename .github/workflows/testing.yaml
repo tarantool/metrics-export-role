@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  linux:
+  tests:
     # We want to run on external PRs, but not on our own internal
     # PRs as they'll be run by the push to the branch.
     #
@@ -21,7 +21,6 @@ jobs:
           - 'debug-master'
         include:
           - tarantool: '3.1'
-            coveralls: true
     env:
       TNT_DEBUG_PATH: /home/runner/tnt-debug
 
@@ -49,15 +48,57 @@ jobs:
           key: "cache-rocks-${{ matrix.tarantool }}${{ env.VERSION_POSTFIX }}"
 
       - name: Install requirements
-        run: make deps depname=coverage
+        run: make deps depname=test
         if: steps.cache-rocks.outputs.cache-hit != 'true'
 
       - run: echo $PWD/.rocks/bin >> $GITHUB_PATH
 
       - run: make test
 
+  coverage:
+    # We want to run on external PRs, but not on our own internal
+    # PRs as they'll be run by the push to the branch.
+    #
+    # The main trick is described here:
+    # https://github.com/Dart-Code/Dart-Code/pull/2375
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
+
+    strategy:
+      fail-fast: false
+
+    env:
+      TNT_DEBUG_PATH: /home/runner/tnt-debug
+
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Clone the module
+        uses: actions/checkout@v3
+
+      - name: Setup tt
+        run: |
+          curl -L https://tarantool.io/release/3/installer.sh | bash
+          sudo apt install -y tt
+          tt version
+
+      - name: Install Tarantool
+        uses: ./.github/actions/install-tarantool
+        with: 
+          tarantool: '3.1'
+
+      - name: Cache rocks
+        uses: actions/cache@v3
+        id: cache-rocks
+        with:
+          path: .rocks/
+          key: "cache-rocks-3.1${{ env.VERSION_POSTFIX }}"
+
+      - name: Install requirements
+        run: make deps depname=coverage
+        if: steps.cache-rocks.outputs.cache-hit != 'true'
+
+      - run: echo $PWD/.rocks/bin >> $GITHUB_PATH
+
       - name: Send code coverage to 'coveralls.io'
         run: make coveralls
-        if: ${{ matrix.coveralls }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
