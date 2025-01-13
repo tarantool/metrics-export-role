@@ -20,7 +20,9 @@ jobs:
         tarantool:
           - 'debug-master'
         include:
-          - tarantool: '3.1'
+          # We test role for min supported tarantool version and the latest one.
+          - tarantool: '3.0.2'
+          - tarantool: '3.3.1'
     env:
       TNT_DEBUG_PATH: /home/runner/tnt-debug
 
@@ -83,7 +85,7 @@ jobs:
       - name: Install Tarantool
         uses: ./.github/actions/install-tarantool
         with: 
-          tarantool: '3.1'
+          tarantool: '3.3'
 
       - name: Cache rocks
         uses: actions/cache@v3
