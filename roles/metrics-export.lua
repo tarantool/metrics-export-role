@@ -100,7 +100,15 @@ end
 local http_handlers = {
     json = function(req)
         local json_exporter = require('metrics.plugins.json')
-        return req:render({ text = json_exporter.export() })
+        local json_data = json_exporter.export()
+
+        if type(json_data) ~= "string" then
+            json_data = require('json').encode(json_data)
+        end
+
+        local response = req:render({ json = {} })
+        response.body = json_data
+        return response
     end,
     prometheus = function(...)
         local http_handler = require('metrics.plugins.prometheus').collect_http
