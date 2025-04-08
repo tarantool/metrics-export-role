@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Unclear error message when `roles.httpd` config is not applied yet (#33).
+
 ## 0.3.0 - 2024-12-27
 
 This release adds TLS support with `listen` configuration parameter.
