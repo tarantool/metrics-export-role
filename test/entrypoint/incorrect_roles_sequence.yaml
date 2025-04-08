@@ -1,0 +1,27 @@
+credentials:
+  users:
+    guest:
+      roles: [super]
+
+groups:
+  group-001:
+    replicasets:
+      replicaset-001:
+        instances:
+          master:
+            roles: [roles.metrics-export, roles.httpd]
+            roles_cfg:
+              roles.httpd:
+                default:
+                  listen: 8085
+              roles.metrics-export:
+                http:
+                - server: 'default'
+                  endpoints:
+                  - path: /metrics/prometheus
+                    format: prometheus
+                    metrics:
+                      enabled: true
+            iproto:
+              listen:
+                - uri: '127.0.0.1:3313'

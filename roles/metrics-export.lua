@@ -369,6 +369,10 @@ local function apply_http(conf)
                     httpd:start()
                 else
                     httpd = httpd_role.get_server(target.value)
+                    if httpd == nil then
+                        error(('failed to get server by name %q, check that roles.httpd was' ..
+                              ' already applied'):format(target.value))
+                    end
                 end
 
                 http_servers[tostring(target.value) .. tostring(target.is_httpd_role)] = {
