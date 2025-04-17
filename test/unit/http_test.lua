@@ -699,6 +699,57 @@ local test_reapply_delete_cases = {
             },
         },
     },
+    ["listen_global_addr"] = {
+        apply_cases = {
+            {
+                cfg = {
+                    http = {
+                        {
+                            listen = '0.0.0.0:8081',
+                            endpoints = {
+                                {
+                                    path = "/metrics1",
+                                    format = "prometheus",
+                                },
+                            },
+                        },
+                    },
+                },
+                expected_json_urls = {},
+                expected_prometheus_urls = {
+                    "http://127.0.0.1:8081/metrics1",
+                    "http://127.1.2.3:8081/metrics1"
+                },
+                expected_none_urls = {},
+            },
+            {
+                cfg = {
+                    http = {
+                        {
+                            listen = '127.0.0.1:8081',
+                            endpoints = {
+                                {
+                                    path = "/metrics1",
+                                    format = "json",
+                                },
+                                {
+                                    path = "/metrics2",
+                                    format = "prometheus",
+                                },
+                            },
+                        },
+                    },
+                },
+                expected_json_urls = {
+                    "http://127.0.0.1:8081/metrics1",
+                },
+                expected_prometheus_urls = {
+                    "http://127.0.0.1:8081/metrics2",
+                },
+                expected_none_urls = {},
+            },
+        },
+    },
 }
 
 for name, case in pairs(test_reapply_delete_cases) do
@@ -855,6 +906,61 @@ local test_reapply_add_cases = {
                 module = "config",
                 method = "get",
                 implementation = config_get_return_httpd_config,
+            },
+        },
+    },
+    ["listen_global_addr"] = {
+        apply_cases = {
+            {
+                cfg = {
+                    http = {
+                        {
+                            listen = '127.0.0.1:8081',
+                            endpoints = {
+                                {
+                                    path = "/metrics1",
+                                    format = "prometheus",
+                                },
+                            },
+                        },
+                    },
+                },
+                expected_json_urls = {},
+                expected_prometheus_urls = {
+                    "http://127.0.0.1:8081/metrics1"
+                },
+                expected_none_urls = {
+                    "http://127.0.0.1:8081/metrics2",
+                    "http://127.0.0.1:8082/metrics1",
+                },
+            },
+            {
+                cfg = {
+                    http = {
+                        {
+                            listen = '0.0.0.0:8081',
+                            endpoints = {
+                                {
+                                    path = "/metrics1",
+                                    format = "json",
+                                },
+                                {
+                                    path = "/metrics2",
+                                    format = "prometheus",
+                                },
+                            },
+                        },
+                    },
+                },
+                expected_json_urls = {
+                    "http://127.0.0.1:8081/metrics1",
+                    "http://127.1.2.3:8081/metrics1",
+                },
+                expected_prometheus_urls = {
+                    "http://127.0.0.1:8081/metrics2",
+                    "http://127.1.2.3:8081/metrics2",
+                },
+                expected_none_urls = {},
             },
         },
     },

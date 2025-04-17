@@ -11,6 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `Address already in use` error on change role's config on the fly (#34).
+
 ### Changed
 
 - Unclear error message when `roles.httpd` config is not applied yet (#33).
