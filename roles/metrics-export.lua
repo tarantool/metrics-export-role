@@ -329,8 +329,8 @@ local function apply_http(conf)
             local host, port, target
             if node.server ~= nil then
                 target = {
-                    value = node.server,
-                    is_httpd_role = true,
+                    value = 'httpd_' .. node.server,
+                    httpd_name = node.server,
                 }
             elseif node.listen ~= nil then
                 local err
@@ -339,23 +339,49 @@ local function apply_http(conf)
                     error("failed to parse URI: " .. err, 2)
                 end
                 target = {
-                    value = node.listen,
-                    is_httpd_role = false,
+                    value = 'listen_' .. host .. ':' .. tostring(port),
                 }
             else
                 target = {
-                    value = httpd_role.DEFAULT_SERVER_NAME,
-                    is_httpd_role = true,
+                    value = 'httpd_' .. httpd_role.DEFAULT_SERVER_NAME,
+                    httpd_name = httpd_role.DEFAULT_SERVER_NAME,
                 }
             end
 
             http_servers = http_servers or {}
-            -- Since the 'listen' and 'server' names of other servers in the config may be
-            -- the same, we create a unique string concatenating the key name and information
-            -- about whether it is an httpd key or not.
-            enabled[tostring(target.value) .. tostring(target.is_httpd_role)] = true
 
-            if http_servers[tostring(target.value) .. tostring(target.is_httpd_role)] == nil then
+            -- Since the 'listen' and 'server' names of other servers in the config may be
+            -- the same, we create a unique string concatenating the key (which is listen or server)
+            -- and its value.
+            enabled[target.value] = true
+
+            if http_servers[target.value] == nil then
+                if target.httpd_name == nil then
+                    local count_global_addrs = 0
+
+                    for _, n in pairs(conf) do
+                        -- Count if it is more than one server that on gloabl address 0.0.0.0.
+                        if n.listen ~= nil and string.find(tostring(n.listen), tostring(port)) ~= nil then
+                            count_global_addrs = count_global_addrs + 1
+                        end
+                    end
+
+                    if host == '0.0.0.0' then
+                        if count_global_addrs == 1 then
+                            for k in pairs(http_servers) do
+                                if http_servers[k].httpd_name == nil and string.find(k, ':' .. port) ~= nil then
+                                    http_servers[k].httpd:stop()
+                                    enabled[k] = false
+                                end
+                            end
+                        end
+                    elseif http_servers['listen_0.0.0.0:' .. port] ~= nil and count_global_addrs == 1 then
+                        local key = 'listen_0.0.0.0:' .. port
+                        http_servers[key].httpd:stop()
+                        enabled[key] = false
+                    end
+                end
+
                 local httpd
                 if node.listen ~= nil then
                     httpd = http_server.new(host, port, {
@@ -368,21 +394,21 @@ local function apply_http(conf)
                     })
                     httpd:start()
                 else
-                    httpd = httpd_role.get_server(target.value)
+                    httpd = httpd_role.get_server(target.httpd_name)
                     if httpd == nil then
                         error(('failed to get server by name %q, check that roles.httpd was' ..
-                              ' already applied'):format(target.value))
+                              ' already applied'):format(target.httpd_name))
                     end
                 end
 
-                http_servers[tostring(target.value) .. tostring(target.is_httpd_role)] = {
+                http_servers[target.value] = {
                     httpd = httpd,
                     routes = {},
-                    is_httpd_role = target.is_httpd_role,
+                    httpd_name = target.httpd_name,
                 }
             end
 
-            local server = http_servers[tostring(target.value) .. tostring(target.is_httpd_role)]
+            local server = http_servers[target.value]
             local httpd = server.httpd
             local old_routes = server.routes
 
@@ -422,14 +448,16 @@ local function apply_http(conf)
         end
     end
 
-    for target, server in pairs(http_servers) do
+    for target, server in pairs(http_servers or {}) do
         if not enabled[target] then
-            if server.is_httpd_role then
+            if server.httpd_name ~= nil then
                 for path, _ in pairs(server.routes) do
                     server.httpd:delete(path)
                 end
             else
-                server.httpd:stop()
+                if server.httpd.is_run == true then
+                    server.httpd:stop()
+                end
             end
             http_servers[target] = nil
         end
@@ -438,12 +466,14 @@ end
 
 local function stop_http()
     for _, server in pairs(http_servers or {}) do
-        if server.is_httpd_role then
+        if server.httpd_name ~= nil then
             for path, _ in pairs(server.routes) do
                 server.httpd:delete(path)
             end
         else
-            server.httpd:stop()
+            if server.httpd.is_run == true then
+                server.httpd:stop()
+            end
         end
     end
     http_servers = nil
