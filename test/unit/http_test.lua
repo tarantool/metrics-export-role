@@ -1246,3 +1246,53 @@ for name, case in pairs(test_tls_cases) do
         end
     end
 end
+
+local function assert_content_type(uri, expected_content_type, tls_opts)
+    local response = http_client:get(uri, tls_opts)
+    t.assert_equals(response.status, 200)
+    t.assert_equals(response.headers['content-type'], expected_content_type)
+end
+
+local test_content_type_cases = {
+    ['json'] = {
+        cfg = {
+            http = {
+                {
+                    listen = 8081,
+                    endpoints = {
+                        {
+                            path = "/json_metrics",
+                            format = "json",
+                        },
+                    },
+                },
+            },
+        },
+        expected_url = "http://127.0.0.1:8081/json_metrics",
+        expected_content_type = "application/json; charset=utf-8",
+    },
+    ['prometheus'] = {
+        cfg = {
+            http = {
+                {
+                    listen = 8081,
+                    endpoints = {
+                        {
+                            path = "/prometheus_metrics",
+                            format = "prometheus",
+                        },
+                    },
+                },
+            },
+        },
+        expected_url = "http://127.0.0.1:8081/prometheus_metrics",
+        expected_content_type = "text/plain; charset=utf8",
+    },
+}
+
+for name, case in pairs(test_content_type_cases) do
+    g['test_content_type_' .. name] = function(cg)
+        cg.role.apply(case.cfg)
+        assert_content_type(case.expected_url, case.expected_content_type)
+    end
+end
