@@ -14,7 +14,7 @@ from Tarantool 3. For now only export via HTTP is supported.
 ```Lua
 dependencies = {
     ...
-    'metrics-export-role == 0.3.0-1',
+    'metrics-export-role == 0.3.1-1',
     ...
 }
 ```
