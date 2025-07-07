@@ -6,7 +6,7 @@ local M = {}
 
 -- Сontains the module version.
 -- Requires manual update in case of release commit.
-M._VERSION = "0.3.0"
+M._VERSION = "0.3.1"
 
 local function is_array(tbl)
     assert(type(tbl) == "table", "a table expected")

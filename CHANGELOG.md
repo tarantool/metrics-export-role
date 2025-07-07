@@ -11,6 +11,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+### Changed
+
+## 0.3.1 - 2025-07-07
+
+The release contains some minor bugfixes.
+
+### Fixed
+
 - `Address already in use` error on change role's config on the fly (#34).
 
 ### Changed
