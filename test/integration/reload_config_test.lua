@@ -3,6 +3,7 @@ local yaml = require('yaml')
 local socket = require('socket')
 local helpers = require('test.helpers')
 local server = require('test.helpers.server')
+local http_client = require('http.client'):new()
 
 local t = require('luatest')
 local g = t.group()
@@ -57,6 +58,26 @@ local function change_listen_target_in_config(cg, old_addr, new_addr)
     file:close()
 end
 
+local function change_http_addr_in_config(cg, new_addr, server_name)
+    if server_name == nil then
+      server_name = 'default'
+    end
+
+    local file = fio.open(fio.pathjoin(cg.workdir, 'config.yaml'), {'O_RDONLY'})
+    t.assert(file ~= nil)
+
+    local cfg = file:read()
+    file:close()
+
+    cfg = yaml.decode(cfg)
+    cfg.groups['group-001'].replicasets['replicaset-001'].
+                             instances.master.roles_cfg['roles.httpd'][server_name].listen = new_addr
+
+    file = fio.open(fio.pathjoin(cg.workdir, 'config.yaml'), {'O_CREAT', 'O_WRONLY', 'O_TRUNC'}, tonumber('644', 8))
+    file:write(yaml.encode(cfg))
+    file:close()
+end
+
 g.test_reload_config_update_addr = function(cg)
     cg.server = server:new({
         config_file = fio.pathjoin(cg.workdir, 'config.yaml'),
@@ -99,4 +120,37 @@ g.test_reload_config_global_addr_conflict = function(cg)
       "Can't create tcp_server: Address already in use",
       function() cg.server:eval("require('config'):reload()") end
     )
+end
+
+g.test_reload_config_routes_exists = function(cg)
+    cg.server = server:new({
+        config_file = fio.pathjoin(cg.workdir, 'config.yaml'),
+        chdir = cg.workdir,
+        alias = 'master',
+        workdir = cg.workdir,
+    })
+
+    cg.server:start({wait_until_ready = true})
+
+    local response = http_client:get('localhost:8085/metrics/prometheus')
+    t.assert_equals(response.status, 200)
+    t.assert(response.body)
+
+    local _, err = cg.server:eval("require('config'):reload()")
+    t.assert_not(err)
+
+    response = http_client:get('localhost:8085/metrics/prometheus')
+    t.assert_equals(response.status, 200)
+    t.assert(response.body)
+
+    change_http_addr_in_config(cg, 8088)
+    _, err = cg.server:eval("require('config'):reload()")
+    t.assert_not(err)
+
+    response = http_client:get('localhost:8085/metrics/prometheus')
+    t.assert_equals(response.status, 595)
+
+    response = http_client:get('localhost:8088/metrics/prometheus')
+    t.assert_equals(response.status, 200)
+    t.assert(response.body)
 end

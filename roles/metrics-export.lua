@@ -327,7 +327,7 @@ local function disable_server(name)
 
     if server ~= nil then
         if server.httpd_name ~= nil then
-            for path, _ in pairs(server.routes) do
+            for path in pairs(server.routes) do
                 server.httpd:delete(path)
             end
         else
@@ -402,6 +402,9 @@ local function apply_http(conf)
                     -- if it isn't in applying config.
                     table.insert(listen_servers_to_start, http_servers[target.value])
                 end
+            elseif target.httpd_name ~= nil then
+                -- Update httpd value because it could change.
+                http_servers[target.value].httpd = httpd_role.get_server(target.httpd_name)
             end
 
             local server = http_servers[target.value]
@@ -427,7 +430,7 @@ local function apply_http(conf)
 
             -- Add new routes.
             for path, endpoint in pairs(new_routes) do
-                if old_routes[path] == nil then
+                if old_routes[path] == nil or httpd.iroutes[path] == nil then
                     httpd:route({
                         method = "GET",
                         path = path,
