@@ -11,9 +11,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- Routes deletion on config reload (#38).
-
 ### Changed
+
+## 0.3.2 - 2025-11-11
+
+The release fixes a small bug on config reload.
+
+### Fixed
+
+- Routes deletion on config reload (#38).
 
 ## 0.3.1 - 2025-07-07
 
