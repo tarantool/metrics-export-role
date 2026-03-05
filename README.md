@@ -66,6 +66,11 @@ groups:
                     format: prometheus
                   - path: /metrics/json/
                     format: json
+                graphite:
+                - prefix: 'tarantool'
+                  host: '127.0.0.1'
+                  port: 2003
+                  send_interval: 1
 ```
 
 In the example above, we configure four HTTP servers. There are serveral server fields:
@@ -183,6 +188,27 @@ roles_cfg:
         format: prometheus
         metrics:
           enabled: true
+```
+
+### graphite target
+
+The target allows exporting metrics to Graphite servers and can be configured
+as an array of servers.
+
+Each server must have `host` and `port` parameters (IP and port number
+of a Graphite server), a `prefix` to export metrics in the format <prefix>.<metric_name>,
+and optional parameter `send_interval` with default value 1 sec.
+
+An individual server can be described as:
+
+```yaml
+roles_cfg:
+  roles.metrics-export:
+    graphite:
+    - prefix: 'tarantool'
+      host: '127.0.0.1'
+      port: 2003
+      send_interval: 1
 ```
 
 ### TLS support

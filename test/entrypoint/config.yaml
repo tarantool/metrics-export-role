@@ -17,6 +17,14 @@ groups:
                 additional:
                   listen: '127.0.0.1:8086'
               roles.metrics-export:
+                graphite:
+                - prefix: 'master'
+                  host: '127.0.0.1'
+                  port: 2222
+                  send_interval: 1
+                - prefix: 'tarantool'
+                  host: '127.0.0.1'
+                  port: 2223
                 http:
                 - listen: 8081
                   endpoints:

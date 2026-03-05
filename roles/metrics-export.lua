@@ -8,6 +8,8 @@ local M = {}
 -- Requires manual update in case of release commit.
 M._VERSION = "0.3.2"
 
+local DEFAULT_GRAPHITE_SEND_INTERVAL = 2
+
 local function is_array(tbl)
     assert(type(tbl) == "table", "a table expected")
     for k, _ in pairs(tbl) do
@@ -107,6 +109,7 @@ local http_handlers = {
         return http_handler(...)
     end,
 }
+
 -- It is used as an error string with the predefined order.
 local http_supported_formats_str = "json, prometheus"
 
@@ -122,6 +125,76 @@ local function validate_endpoint_metrics(metrics)
     if metrics.enabled ~= nil and type(metrics.enabled) ~= 'boolean' then
         error("http endpoint metrics 'enabled' must be a boolean, got " .. type(metrics.enabled), 5)
     end
+end
+
+local function validate_graphite_port(port)
+    if port == nil then
+        error("graphite must have 'port'", 4)
+    end
+    if type(port) ~= "number" then
+        error("graphite 'port' must be a 'number', got " .. type(port), 4)
+    elseif port < 0 or port > 65535 then
+        error("graphite 'port' must be a valid port (0..65535), got " .. tostring(port), 4)
+    end
+end
+
+local function validate_graphite_send_interval(endpoint)
+    if endpoint.send_interval == nil then
+        endpoint.send_interval = DEFAULT_GRAPHITE_SEND_INTERVAL
+        return
+    elseif type(endpoint.send_interval) ~= "number" then
+        error("graphite 'send_interval' must be a 'number', got " .. type(endpoint.send_interval), 4)
+    elseif endpoint.send_interval <= 0 then
+        error("graphite 'send_interval' must be a positive number, got " .. tostring(endpoint.send_interval), 4)
+    end
+end
+
+local function validate_graphite_node(endpoint)
+    if type(endpoint) ~= "table" then
+        error("graphite node must be a table, got " .. type(endpoint), 4)
+    end
+    if next(endpoint) == nil then
+        error("graphite node must have configuration", 4)
+    end
+    if endpoint.prefix == nil then
+        error("graphite must have 'prefix'", 4)
+    end
+    if type(endpoint.prefix) ~= "string" then
+        error("graphite 'prefix' must be a 'string', got " .. type(endpoint.prefix), 4)
+    end
+    if endpoint.host == nil then
+        error("graphite must have 'host'", 4)
+    end
+    if type(endpoint.host) ~= "string" then
+        error("graphite 'host' must be a 'string', got " .. type(endpoint.host), 4)
+    end
+
+    validate_graphite_port(endpoint.port)
+
+    validate_graphite_send_interval(endpoint)
+end
+
+local function validate_graphite(conf)
+    if conf ~= nil and type(conf) ~= "table" then
+        error("graphite configuration must be a table, got " .. type(conf), 2)
+    end
+    conf = conf or {}
+
+    if not is_array(conf) then
+        error("graphite configuration must be an array, not a map", 2)
+    end
+
+    for _, graphite_node in ipairs(conf) do
+        validate_graphite_node(graphite_node)
+    end
+end
+
+local function apply_graphite()
+    -- Will be implemented in the next PR.
+end
+
+local function stop_graphite()
+    -- Will be implemented in the next PR.
 end
 
 local function validate_http_endpoint(endpoint)
@@ -470,6 +543,11 @@ local export_targets = {
         validate = validate_http,
         apply = apply_http,
         stop = stop_http,
+    },
+    ["graphite"] = {
+        validate = validate_graphite,
+        apply = apply_graphite,
+        stop = stop_graphite,
     },
 }
 
