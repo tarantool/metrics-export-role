@@ -14,12 +14,12 @@ jobs:
       # We can not use 'tarantool/check-module-version' action since it installs Tarantool 2.10.
       # For this module we need Tarantool 3.
       - name: Clone the module
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
-      - name: Install tarantool 3.1
-        uses: tarantool/setup-tarantool@v3
+      - name: Install tarantool 3.6
+        uses: tarantool/setup-tarantool@v4
         with:
-          tarantool-version: '3.1'
+          tarantool-version: '3.6'
 
       - name: Setup tt
         run: |
@@ -50,7 +50,7 @@ jobs:
     if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/master' }}
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: tarantool/rocks.tarantool.org/github-action@master
         with:
           auth: ${{ secrets.ROCKS_AUTH }}
@@ -61,7 +61,7 @@ jobs:
     needs: version-check
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       # Create a rockspec for the release.
       - run: printf '%s=%s\n' TAG "${GITHUB_REF##*/}" >> "${GITHUB_ENV}"

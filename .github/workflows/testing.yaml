@@ -29,7 +29,7 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - name: Clone the module
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Setup tt
         run: |
@@ -67,7 +67,7 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - name: Clone the module
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Setup tt
         run: |
@@ -78,7 +78,7 @@ jobs:
       - name: Install Tarantool
         uses: ./.github/actions/install-tarantool
         with: 
-          tarantool: '3.3'
+          tarantool: '3.6'
 
       - name: Install requirements
         run: make deps depname=coverage
