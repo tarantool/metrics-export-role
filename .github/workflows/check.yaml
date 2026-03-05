@@ -17,9 +17,9 @@ jobs:
     - uses: actions/checkout@master
 
     - name: Setup Tarantool CE
-      uses: tarantool/setup-tarantool@v3
+      uses: tarantool/setup-tarantool@v4
       with:
-        tarantool-version: '3.2.0'
+        tarantool-version: '3.6.0'
 
     - name: Setup tt
       run: |

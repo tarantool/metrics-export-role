@@ -27,14 +27,14 @@ runs:
     - name: Cache tarantool build
       if: startsWith(inputs.tarantool, 'debug')
       id: cache-tnt-debug
-      uses: actions/cache@v3
+      uses: actions/cache@v5
       with:
         path: ${{ env.TNT_DEBUG_PATH }}
         key: cache-tnt-${{ inputs.tarantool }}${{ env.VERSION_POSTFIX }}
 
     - name: Clone tarantool ${{ inputs.tarantool }}
       if: startsWith(inputs.tarantool, 'debug') && steps.cache-tnt-debug.outputs.cache-hit != 'true'
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
       with:
         repository: tarantool/tarantool
         ref: ${{ env.TNT_BRANCH }}
