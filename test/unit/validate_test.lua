@@ -629,6 +629,144 @@ local error_cases = {
         },
         err = "tls options are availabe only with 'listen' parameter",
     },
+    ["graphite_not_a_table"] = {
+        cfg = {
+            graphite = 123,
+        },
+        err = "graphite configuration must be a table, got number"
+    },
+    ["graphite_node_not_a_table"] = {
+        cfg = {
+            graphite = {
+                123,456
+            },
+        },
+        err = "graphite node must be a table, got number"
+    },
+    ["graphite_no_params"] = {
+        cfg = {
+            graphite = {{}},
+        },
+        err = "graphite node must have configuration"
+    },
+    ["graphite_no_prefix"] = {
+        cfg = {
+            graphite = {{
+                host = "127.0.0.1",
+                port = 2222,
+                send_interval = 1,
+            },},
+        },
+        err = "graphite must have 'prefix'"
+    },
+    ["graphite_prefix_invalid"] = {
+        cfg = {
+            graphite = {{
+                prefix = 123,
+                host = "127.0.0.1",
+                port = 2222,
+                send_interval = 1,
+            },},
+        },
+        err = "graphite 'prefix' must be a 'string', got number"
+    },
+    ["graphite_no_host"] = {
+        cfg = {
+            graphite = {{
+                prefix = "master",
+                port = 2222,
+                send_interval = 1,
+            },},
+        },
+        err = "graphite must have 'host'"
+    },
+    ["graphite_host_invalid"] = {
+        cfg = {
+            graphite = {{
+                prefix = "master",
+                host = 123,
+                port = 2222,
+                send_interval = 1,
+            },},
+        },
+        err = "graphite 'host' must be a 'string', got number"
+    },
+    ["graphite_no_port"] = {
+        cfg = {
+            graphite = {{
+                prefix = "master",
+                host = "127.0.0.1",
+                send_interval = 1,
+            },},
+        },
+        err = "graphite must have 'port'"
+    },
+    ["graphite_port_string"] = {
+        cfg = {
+            graphite = {{
+                prefix = "master",
+                host = "127.0.0.1",
+                port = '2222',
+                send_interval = 1,
+            },},
+        },
+        err = "graphite 'port' must be a 'number', got string"
+    },
+    ["graphite_port_negative"] = {
+        cfg = {
+            graphite = {{
+                prefix = "master",
+                host = "127.0.0.1",
+                port = -2222,
+                send_interval = 1,
+            },},
+        },
+        err = "graphite 'port' must be a valid port (0..65535), got "
+    },
+    ["graphite_port_overflow"] = {
+        cfg = {
+            graphite = {{
+                prefix = "master",
+                host = "127.0.0.1",
+                port = 111222,
+                send_interval = 1,
+            },},
+        },
+        err = "graphite 'port' must be a valid port (0..65535), got "
+    },
+    ["graphite_send_interval_string"] = {
+        cfg = {
+            graphite = {{
+                prefix = "master",
+                host = "127.0.0.1",
+                port = 2222,
+                send_interval = '1',
+            },},
+        },
+        err = "graphite 'send_interval' must be a 'number', got string"
+    },
+    ["graphite_send_interval_negative"] = {
+        cfg = {
+            graphite = {{
+                prefix = "master",
+                host = "127.0.0.1",
+                port = 2222,
+                send_interval = -1,
+            },},
+        },
+        err = "graphite 'send_interval' must be a positive number"
+    },
+    ["graphite_send_interval_zero"] = {
+        cfg = {
+            graphite = {{
+                prefix = "master",
+                host = "127.0.0.1",
+                port = 2222,
+                send_interval = 0,
+            },},
+        },
+        err = "graphite 'send_interval' must be a positive number"
+    },
 }
 
 for name, case in pairs(error_cases) do
@@ -892,6 +1030,41 @@ local ok_cases = {
                     ssl_password_file = "ssl_password_file",
                 },
             },
+        },
+    },
+    ["graphite_full"] = {
+        cfg = {
+            graphite = {{
+                prefix = "master",
+                host = "127.0.0.1",
+                port = 2222,
+                send_interval = 1,
+            },},
+        },
+    },
+    ["graphite_no_send_interval"] = {
+        cfg = {
+            graphite = {{
+                prefix = "master",
+                host = "127.0.0.1",
+                port = 2222,
+            },},
+        },
+    },
+    ["graphite_two_servers"] = {
+        cfg = {
+            graphite = {{
+                prefix = "master",
+                host = "127.0.0.1",
+                port = 2222,
+                send_interval = 1,
+            },
+            {
+                prefix = "tarantool",
+                host = "127.0.0.1",
+                port = 2223,
+                send_interval = 3,
+            },},
         },
     },
 }

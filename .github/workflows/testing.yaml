@@ -22,7 +22,7 @@ jobs:
         include:
           # We test role for min supported tarantool version and the latest one.
           - tarantool: '3.0.2'
-          - tarantool: '3.3.1'
+          - tarantool: '3.6.2'
     env:
       TNT_DEBUG_PATH: /home/runner/tnt-debug
 
