@@ -20,7 +20,7 @@ groups:
                 graphite:
                 - prefix: 'master'
                   host: '127.0.0.1'
-                  port: 2222
+                  port: 44444
                   send_interval: 1
                 - prefix: 'tarantool'
                   host: '127.0.0.1'

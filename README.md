@@ -196,8 +196,9 @@ The target allows exporting metrics to Graphite servers and can be configured
 as an array of servers.
 
 Each server must have `host` and `port` parameters (IP and port number
-of a Graphite server), a `prefix` to export metrics in the format <prefix>.<metric_name>,
-and optional parameter `send_interval` with default value 1 sec.
+of a Graphite server), a `prefix` to export metrics in the format
+`<prefix>.<metric_name>`, and optional parameter `send_interval` with
+default value 2 sec.
 
 An individual server can be described as:
 
@@ -209,6 +210,9 @@ roles_cfg:
       host: '127.0.0.1'
       port: 2003
       send_interval: 1
+    - prefix: 'master'
+      host: '127.0.0.2'
+      port: 4444
 ```
 
 ### TLS support

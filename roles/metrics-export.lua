@@ -133,8 +133,8 @@ local function validate_graphite_port(port)
     end
     if type(port) ~= "number" then
         error("graphite 'port' must be a 'number', got " .. type(port), 4)
-    elseif port < 0 or port > 65535 then
-        error("graphite 'port' must be a valid port (0..65535), got " .. tostring(port), 4)
+    elseif port < 1 or port > 65535 then
+        error("graphite 'port' must be a valid port (1..65535), got " .. tostring(port), 4)
     end
 end
 
@@ -189,12 +189,58 @@ local function validate_graphite(conf)
     end
 end
 
-local function apply_graphite()
-    -- Will be implemented in the next PR.
+local function table_equals(t1, t2)
+	if t1 == t2 then
+        return true
+    end
+    if type(t1) ~= "table" or type(t2) ~= "table" then
+        return false
+    end
+
+    for k, v in pairs(t1) do
+        if type(v) == "table" and type(t2[k]) == "table" then
+            if not table_equals(v, t2[k]) then
+                return false
+            end
+        elseif v ~= t2[k] then
+            return false
+        end
+    end
+
+    for k in pairs(t2) do
+        if t1[k] == nil then
+            return false
+        end
+    end
+
+    return true
+end
+
+local graphite_nodes = {}
+
+local function apply_graphite(conf)
+    local graphite_plugin = require('metrics.plugins.graphite')
+
+    if not table_equals(graphite_nodes, conf) then
+        graphite_plugin.stop()
+
+        for _, graphite_node in ipairs(conf) do
+            graphite_plugin.init({
+                prefix = graphite_node.prefix,
+                host =  graphite_node.host,
+                port = tonumber(graphite_node.port),
+                send_interval = tonumber(graphite_node.send_interval),
+            })
+        end
+    end
+
+    graphite_nodes = conf
 end
 
 local function stop_graphite()
-    -- Will be implemented in the next PR.
+    require('metrics.plugins.graphite').stop()
+
+    graphite_nodes = {}
 end
 
 local function validate_http_endpoint(endpoint)
@@ -578,8 +624,8 @@ M.apply = function(conf)
 end
 
 M.stop = function()
-    for _, callbacks in pairs(export_targets) do
-        callbacks.stop()
+    for _, target in pairs(export_targets) do
+        target.stop()
     end
 end
 
