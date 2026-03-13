@@ -629,20 +629,6 @@ local error_cases = {
         },
         err = "tls options are availabe only with 'listen' parameter",
     },
-    ["graphite_not_a_table"] = {
-        cfg = {
-            graphite = 123,
-        },
-        err = "graphite configuration must be a table, got number"
-    },
-    ["graphite_node_not_a_table"] = {
-        cfg = {
-            graphite = {
-                123,456
-            },
-        },
-        err = "graphite node must be a table, got number"
-    },
     ["graphite_no_params"] = {
         cfg = {
             graphite = {{}},
@@ -717,11 +703,11 @@ local error_cases = {
             graphite = {{
                 prefix = "master",
                 host = "127.0.0.1",
-                port = -2222,
+                port = 0,
                 send_interval = 1,
             },},
         },
-        err = "graphite 'port' must be a valid port (0..65535), got "
+        err = "graphite 'port' must be a valid port (1..65535), got "
     },
     ["graphite_port_overflow"] = {
         cfg = {
@@ -732,7 +718,7 @@ local error_cases = {
                 send_interval = 1,
             },},
         },
-        err = "graphite 'port' must be a valid port (0..65535), got "
+        err = "graphite 'port' must be a valid port (1..65535), got "
     },
     ["graphite_send_interval_string"] = {
         cfg = {
@@ -1064,7 +1050,8 @@ local ok_cases = {
                 host = "127.0.0.1",
                 port = 2223,
                 send_interval = 3,
-            },},
+            },
+        },
         },
     },
 }

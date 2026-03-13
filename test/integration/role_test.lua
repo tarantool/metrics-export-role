@@ -1,4 +1,5 @@
 local fio = require('fio')
+local graphite_helpers = require('test.helpers.graphite')
 local json = require('json')
 local helpers = require('test.helpers')
 local http_client = require('http.client'):new()
@@ -19,7 +20,7 @@ g.before_each(function(cg)
     fio.copytree("roles", fio.pathjoin(cg.workdir, "roles"))
     fio.copytree(fio.pathjoin("test", "ssl_data"), fio.pathjoin(cg.workdir, "ssl_data"))
 
-    cg.router = server:new({
+    cg.master = server:new({
         config_file = fio.abspath(fio.pathjoin('test', 'entrypoint', 'config.yaml')),
         chdir = cg.workdir,
         alias = 'master',
@@ -29,11 +30,11 @@ g.before_each(function(cg)
     -- It takes around 1s to start an instance, which considering small amount
     -- of integration tests is not a problem. But at the same time, we have a
     -- clean work environment.
-    cg.router:start{wait_until_ready = true}
+    cg.master:start{wait_until_ready = true}
 end)
 
 g.after_each(function(cg)
-    cg.router:stop()
+    cg.master:stop()
     fio.rmtree(cg.workdir)
 end)
 
@@ -136,4 +137,9 @@ g.test_endpoint_with_tls = function(cg)
     assert_json("https://localhost:8087/metrics/json/", client_tls_opts)
     assert_not_observed("https://localhost:8087", "/metrics/prometheus", client_tls_opts)
     assert_observed("https://localhost:8087", "/metrics/observed/prometheus/1", client_tls_opts)
+end
+
+g.test_graphite_servers = function()
+    t.assert_ge(graphite_helpers.count_graphite_frames("master", "127.0.0.1", 44444, 1), 1)
+    t.assert_ge(graphite_helpers.count_graphite_frames("tarantool", "127.0.0.1", 2223, 2), 1)
 end

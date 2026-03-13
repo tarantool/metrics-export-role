@@ -1,5 +1,5 @@
 -- M is a mocks module that uses for changing methods behaviour.
--- It could be useful in unit tests when we neeed to determine
+-- It could be useful in unit tests when we need to determine
 -- behaviour of methods that we don't need to test in it.
 local M = {}
 
@@ -42,7 +42,7 @@ M.apply = function(mocks)
     end
 end
 
--- M.delete returns original implementation from mocked method.
+-- M.clear returns original implementation from mocked method.
 M.clear = function()
     for _, mock in ipairs(M.mocks) do
        require(mock.module)[mock.method] = mock.original_implementation

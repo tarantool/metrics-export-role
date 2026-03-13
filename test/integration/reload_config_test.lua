@@ -1,9 +1,10 @@
 local fio = require('fio')
-local yaml = require('yaml')
-local socket = require('socket')
+local graphite_helpers = require('test.helpers.graphite')
 local helpers = require('test.helpers')
-local server = require('test.helpers.server')
 local http_client = require('http.client'):new()
+local server = require('test.helpers.server')
+local socket = require('socket')
+local yaml = require('yaml')
 
 local t = require('luatest')
 local g = t.group()
@@ -117,8 +118,8 @@ g.test_reload_config_global_addr_conflict = function(cg)
 
     change_listen_target_in_config(cg, 8081, '0.0.0.0:8082')
     t.assert_error_msg_content_equals(
-      "Can't create tcp_server: Address already in use",
-      function() cg.server:eval("require('config'):reload()") end
+        "Can't create tcp_server: Address already in use",
+        function() cg.server:eval("require('config'):reload()") end
     )
 end
 
@@ -144,6 +145,7 @@ g.test_reload_config_routes_exists = function(cg)
     t.assert(response.body)
 
     change_http_addr_in_config(cg, 8088)
+
     _, err = cg.server:eval("require('config'):reload()")
     t.assert_not(err)
 
@@ -153,4 +155,49 @@ g.test_reload_config_routes_exists = function(cg)
     response = http_client:get('localhost:8088/metrics/prometheus')
     t.assert_equals(response.status, 200)
     t.assert(response.body)
+end
+
+local function change_graphite_port_in_config(cg, new_port)
+    if new_port == nil then
+        new_port = '2222'
+    end
+
+    local file = fio.open(fio.pathjoin(cg.workdir, 'config.yaml'), {'O_RDONLY'})
+    t.assert(file ~= nil)
+
+    local cfg = file:read()
+    file:close()
+
+    cfg = yaml.decode(cfg)
+
+    cfg.groups['group-001'].replicasets['replicaset-001'].instances.master.
+        roles_cfg['roles.metrics-export'].graphite[2].port = new_port
+
+    file = fio.open(fio.pathjoin(cg.workdir, 'config.yaml'), {'O_CREAT', 'O_WRONLY', 'O_TRUNC'}, tonumber('644', 8))
+    file:write(yaml.encode(cfg))
+    file:close()
+end
+
+
+g.test_reload_config_graphite = function(cg)
+    cg.server = server:new({
+        config_file = fio.pathjoin(cg.workdir, 'config.yaml'),
+        chdir = cg.workdir,
+        alias = 'master',
+        workdir = cg.workdir,
+    })
+
+    cg.server:start({wait_until_ready = true})
+
+    t.assert_ge(graphite_helpers.count_graphite_frames("master", "127.0.0.1", 44444, 1), 1)
+    t.assert_ge(graphite_helpers.count_graphite_frames("tarantool", "127.0.0.1", 2223, 2), 1)
+
+    change_graphite_port_in_config(cg, 3333)
+
+    local _, err = cg.server:eval("require('config'):reload()")
+    t.assert_not(err)
+
+    t.assert_ge(graphite_helpers.count_graphite_frames("master", "127.0.0.1", 44444, 1), 1)
+    t.assert_ge(graphite_helpers.count_graphite_frames("tarantool", "127.0.0.1", 3333, 2), 1)
+    t.assert_equals(graphite_helpers.count_graphite_frames("tarantool", "127.0.0.1", 2223, 2), 0)
 end
