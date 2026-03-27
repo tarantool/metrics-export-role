@@ -17,7 +17,7 @@ dependencies = {
     "lua >= 5.1",
     "tarantool >= 3.0.2",
     "http >= 1.7.0",
-    "metrics == scm-1"
+    "metrics >= 1.7.0",
 }
 
 build = {
