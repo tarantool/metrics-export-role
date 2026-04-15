@@ -208,12 +208,27 @@ roles_cfg:
     graphite:
     - prefix: 'tarantool'
       host: '127.0.0.1'
-      port: 2003
+      port: 2023
       send_interval: 1
     - prefix: 'master'
       host: '127.0.0.2'
-      port: 4444
+      port: 2023
 ```
+
+Graphite server should be configured to receive metrics with
+[tags](https://graphite.readthedocs.io/en/latest/tags.html) via UDP socket.
+
+`Carbon` configuration file (`/opt/graphite/conf/carbon.conf`) should contain
+the following options:
+```
+ENABLE_TAGS = True
+TAG_UPDATE_INTERVAL = 10
+ENABLE_UDP_LISTENER = True
+UDP_RECEIVER_INTERFACE = 0.0.0.0
+UDP_RECEIVER_PORT = 2023
+```
+When using `Docker` image - port to receive tagged metrics should be opened
+for UDP datagrams as "2023:2023/udp".
 
 ### TLS support
 
