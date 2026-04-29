@@ -6,7 +6,7 @@ local M = {}
 
 -- Сontains the module version.
 -- Requires manual update in case of release commit.
-M._VERSION = "0.4.0"
+M._VERSION = "0.4.1"
 
 local DEFAULT_GRAPHITE_SEND_INTERVAL = 2
 
