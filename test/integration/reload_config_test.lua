@@ -162,7 +162,7 @@ local function change_graphite_port_in_config(cg, new_port)
         new_port = '2222'
     end
 
-    local file = fio.open(fio.pathjoin(cg.workdir, 'config.yaml'), {'O_RDONLY'})
+    local file = fio.open(fio.pathjoin(cg.workdir, 'graphite_config.yaml'), {'O_RDONLY'})
     t.assert(file ~= nil)
 
     local cfg = file:read()
@@ -173,15 +173,23 @@ local function change_graphite_port_in_config(cg, new_port)
     cfg.groups['group-001'].replicasets['replicaset-001'].instances.master.
         roles_cfg['roles.metrics-export'].graphite[2].port = new_port
 
-    file = fio.open(fio.pathjoin(cg.workdir, 'config.yaml'), {'O_CREAT', 'O_WRONLY', 'O_TRUNC'}, tonumber('644', 8))
+    file = fio.open(
+        fio.pathjoin(cg.workdir, 'graphite_config.yaml'),
+        {'O_CREAT', 'O_WRONLY', 'O_TRUNC'},
+        tonumber('644', 8)
+    )
     file:write(yaml.encode(cfg))
     file:close()
 end
 
+g.before_test('test_reload_config_graphite', function(cg)
+    helpers.skip_if_graphite_unsupported()
+    fio.copyfile(fio.pathjoin('test', 'entrypoint', 'graphite_config.yaml'), cg.workdir)
+end)
 
 g.test_reload_config_graphite = function(cg)
     cg.server = server:new({
-        config_file = fio.pathjoin(cg.workdir, 'config.yaml'),
+        config_file = fio.pathjoin(cg.workdir, 'graphite_config.yaml'),
         chdir = cg.workdir,
         alias = 'master',
         workdir = cg.workdir,

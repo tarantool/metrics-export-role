@@ -175,6 +175,12 @@ local function validate_graphite_node(endpoint)
 end
 
 local function validate_graphite(conf)
+    local ok = pcall(require('metrics.plugins.graphite').stop)
+    if not ok then
+        error('ensure you have metrics 1.7.0+ (provided with Tarantool 3.7.0+ or can be ' ..
+            'installed as an external dependency)', 2)
+    end
+
     if conf ~= nil and type(conf) ~= "table" then
         error("graphite configuration must be a table, got " .. type(conf), 2)
     end
@@ -238,9 +244,12 @@ local function apply_graphite(conf)
 end
 
 local function stop_graphite()
-    require('metrics.plugins.graphite').stop()
+    local is_empty = next(graphite_nodes) == nil
 
-    graphite_nodes = {}
+    if not is_empty then
+        require('metrics.plugins.graphite').stop()
+        graphite_nodes = {}
+    end
 end
 
 local function validate_http_endpoint(endpoint)

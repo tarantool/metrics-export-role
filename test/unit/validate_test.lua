@@ -2,6 +2,7 @@ local t = require('luatest')
 local g = t.group()
 
 local mocks = require('test.helpers.mocks')
+local helpers = require('test.helpers')
 
 local httpd_config = {
     default = {
@@ -190,6 +191,17 @@ local error_cases = {
             },
         },
         err = "failed to parse http 'listen' param: URI query component is not supported",
+    },
+    ["http_node_listen_uri_invalid"] = {
+        cfg = {
+            http = {
+                {
+                    listen = "not a valid uri",
+                    endpoints = {},
+                },
+            },
+        },
+        err = "failed to parse http 'listen' param: failed to parse URI",
     },
     ["http_node_endpoints_not_table"] = {
         cfg = {
@@ -635,6 +647,12 @@ local error_cases = {
         },
         err = "graphite node must have configuration"
     },
+    ["graphite_not_table"] = {
+        cfg = {
+            graphite = {5},
+        },
+        err = "graphite node must be a table, got number"
+    },
     ["graphite_no_prefix"] = {
         cfg = {
             graphite = {{
@@ -761,9 +779,15 @@ for name, case in pairs(error_cases) do
             mocks.apply(case.mocks)
         end
 
-        t.assert_error_msg_contains(case.err, function()
-            gc.role.validate(case.cfg)
-        end)
+        if type(case.cfg) == 'table' and case.cfg.graphite and not helpers.is_tarantool3_7_0() then
+            t.assert_error_msg_contains(
+                'ensure you have metrics 1.7.0+ (provided with Tarantool 3.7.0+ or can be ' ..
+                'installed as an external dependency)',
+                function() gc.role.validate(case.cfg) end
+            )
+        else
+            t.assert_error_msg_contains(case.err, function() gc.role.validate(case.cfg) end)
+        end
 
         if case.mocks ~= nil then
             mocks.clear()
@@ -773,6 +797,8 @@ end
 
 for name, case in pairs(error_cases) do
     g["test_apply_validate_error_" .. name] = function(gc)
+        helpers.skip_if_graphite_unsupported()
+
         if case.mocks ~= nil then
             mocks.apply(case.mocks)
         end
@@ -1058,6 +1084,10 @@ local ok_cases = {
 
 for name, case in pairs(ok_cases) do
     g["test_validate_ok_" .. name] = function(gc)
+        if (case.cfg or {}).graphite ~= nil then
+            helpers.skip_if_graphite_unsupported()
+        end
+
         if case.mocks ~= nil then
             mocks.apply(case.mocks)
         end

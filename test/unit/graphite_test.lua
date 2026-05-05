@@ -1,10 +1,13 @@
 local graphite_helpers = require('test.helpers.graphite')
+local helpers = require('test.helpers')
+
 local metrics = require('metrics')
 
 local t = require('luatest')
 local g = t.group()
 
 g.before_all(function(cg)
+    helpers.skip_if_graphite_unsupported()
     cg.role = require('roles.metrics-export')
 end)
 
