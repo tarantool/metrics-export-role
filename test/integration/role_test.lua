@@ -139,6 +139,21 @@ g.test_endpoint_with_tls = function(cg)
     assert_observed("https://localhost:8087", "/metrics/observed/prometheus/1", client_tls_opts)
 end
 
+g.before_test('test_graphite_servers', function(cg)
+    helpers.skip_if_graphite_unsupported()
+
+    if cg.master then
+        cg.master:stop()
+    end
+    cg.master = server:new({
+        config_file = fio.abspath(fio.pathjoin('test', 'entrypoint', 'graphite_config.yaml')),
+        chdir = cg.workdir,
+        alias = 'master',
+        workdir = cg.workdir,
+    })
+    cg.master:start{wait_until_ready = true}
+end)
+
 g.test_graphite_servers = function()
     t.assert_ge(graphite_helpers.count_graphite_frames("master", "127.0.0.1", 44444, 1), 1)
     t.assert_ge(graphite_helpers.count_graphite_frames("tarantool", "127.0.0.1", 2223, 2), 1)

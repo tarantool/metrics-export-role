@@ -1,0 +1,27 @@
+credentials:
+  users:
+    guest:
+      roles: [super]
+
+groups:
+  group-001:
+    replicasets:
+      replicaset-001:
+        instances:
+          master:
+            roles: [roles.httpd, roles.metrics-export]
+            roles_cfg:
+              roles.metrics-export:
+                graphite:
+                - prefix: 'master'
+                  host: '127.0.0.1'
+                  port: 44444
+                  send_interval: 1
+                - prefix: 'tarantool'
+                  host: '127.0.0.1'
+                  port: 2223
+            iproto:
+              listen:
+                - uri: '127.0.0.1:3313'
+            database:
+              mode: rw

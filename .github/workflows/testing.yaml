@@ -22,7 +22,7 @@ jobs:
         include:
           # We test role for min supported tarantool version and the latest one.
           - tarantool: '3.0.2'
-          - tarantool: '3.6.2'
+          - tarantool: '3.7.0'
     env:
       TNT_DEBUG_PATH: /home/runner/tnt-debug
 
@@ -78,7 +78,7 @@ jobs:
       - name: Install Tarantool
         uses: ./.github/actions/install-tarantool
         with: 
-          tarantool: '3.6'
+          tarantool: '3.7'
 
       - name: Install requirements
         run: make deps depname=coverage

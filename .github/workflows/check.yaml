@@ -19,7 +19,7 @@ jobs:
     - name: Setup Tarantool CE
       uses: tarantool/setup-tarantool@v4
       with:
-        tarantool-version: '3.6.0'
+        tarantool-version: '3.7.0'
 
     - name: Setup tt
       run: |
