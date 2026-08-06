@@ -627,7 +627,13 @@ M.apply = function(conf)
     -- a meaningful error if something goes wrong.
     M.validate(conf)
 
-    for export_target, opts in pairs(conf or {}) do
+    conf = conf or {}
+    for export_target, target in pairs(export_targets) do
+        if conf[export_target] == nil then
+            target.stop()
+        end
+    end
+    for export_target, opts in pairs(conf) do
         export_targets[export_target].apply(opts)
     end
 end
