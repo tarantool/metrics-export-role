@@ -189,6 +189,45 @@ g.test_reload_config_remove_http_target = function(cg)
     t.assert_not(is_tcp_connect('127.0.0.1', 8082))
 end
 
+g.before_test('test_reload_config_remove_graphite_target', function(cg)
+    helpers.skip_if_graphite_unsupported()
+    fio.copyfile(fio.pathjoin('test', 'entrypoint', 'graphite_config.yaml'), cg.workdir)
+end)
+
+g.test_reload_config_remove_graphite_target = function(cg)
+    cg.server = server:new({
+        config_file = fio.pathjoin(cg.workdir, 'graphite_config.yaml'),
+        chdir = cg.workdir,
+        alias = 'master',
+        workdir = cg.workdir,
+    })
+    cg.server:start({wait_until_ready = true})
+    t.assert_ge(graphite_helpers.count_graphite_frames("master", "127.0.0.1", 44444, 1), 1)
+    t.assert_ge(graphite_helpers.count_graphite_frames("tarantool", "127.0.0.1", 2223, 2), 1)
+
+    local config_path = fio.pathjoin(cg.workdir, 'graphite_config.yaml')
+    local file = fio.open(config_path, {'O_RDONLY'})
+    t.assert(file ~= nil)
+    local cfg = yaml.decode(file:read())
+    file:close()
+
+    local role_cfg = cfg.groups['group-001'].replicasets['replicaset-001'].
+        instances.master.roles_cfg['roles.metrics-export']
+    role_cfg.graphite = nil
+
+    file = fio.open(config_path, {
+        'O_CREAT', 'O_WRONLY', 'O_TRUNC',
+    }, tonumber('644', 8))
+    t.assert(file ~= nil)
+    file:write(yaml.encode(cfg))
+    file:close()
+
+    cg.server:eval("require('config'):reload()")
+
+    t.assert_equals(graphite_helpers.count_graphite_frames("master", "127.0.0.1", 44444, 1), 0)
+    t.assert_equals(graphite_helpers.count_graphite_frames("tarantool", "127.0.0.1", 2223, 2), 0)
+end
+
 local function change_graphite_port_in_config(cg, new_port)
     if new_port == nil then
         new_port = '2222'
