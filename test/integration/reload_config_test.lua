@@ -280,3 +280,27 @@ g.test_reload_config_graphite = function(cg)
     t.assert_ge(graphite_helpers.count_graphite_frames("tarantool", "127.0.0.1", 3333, 2), 1)
     t.assert_equals(graphite_helpers.count_graphite_frames("tarantool", "127.0.0.1", 2223, 2), 0)
 end
+
+g.before_test('test_reload_config_graphite_not_changed', function(cg)
+    helpers.skip_if_graphite_unsupported()
+    fio.copyfile(fio.pathjoin('test', 'entrypoint', 'graphite_config.yaml'), cg.workdir)
+end)
+
+g.test_reload_config_graphite_not_changed = function(cg)
+    cg.server = server:new({
+        config_file = fio.pathjoin(cg.workdir, 'graphite_config.yaml'),
+        chdir = cg.workdir,
+        alias = 'master',
+        workdir = cg.workdir,
+    })
+
+    cg.server:start({wait_until_ready = true})
+
+    t.assert_ge(graphite_helpers.count_graphite_frames("master", "127.0.0.1", 44444, 1), 1)
+
+    -- Reload the same configuration: the running exporters must survive it.
+    cg.server:eval("require('config'):reload()")
+
+    t.assert_ge(graphite_helpers.count_graphite_frames("master", "127.0.0.1", 44444, 1), 1)
+    t.assert_ge(graphite_helpers.count_graphite_frames("tarantool", "127.0.0.1", 2223, 2), 1)
+end
