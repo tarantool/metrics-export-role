@@ -1044,6 +1044,11 @@ local ok_cases = {
             },
         },
     },
+    ["graphite_empty"] = {
+        cfg = {
+            graphite = {},
+        },
+    },
     ["graphite_full"] = {
         cfg = {
             graphite = {{
@@ -1084,7 +1089,9 @@ local ok_cases = {
 
 for name, case in pairs(ok_cases) do
     g["test_validate_ok_" .. name] = function(gc)
-        if (case.cfg or {}).graphite ~= nil then
+        if next((case.cfg or {}).graphite or {}) ~= nil then
+            -- Skip if at least one endpoint exists. Empty table could
+            -- be possible.
             helpers.skip_if_graphite_unsupported()
         end
 
