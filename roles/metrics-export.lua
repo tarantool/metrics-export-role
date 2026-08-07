@@ -174,9 +174,13 @@ local function validate_graphite_node(endpoint)
     validate_graphite_send_interval(endpoint)
 end
 
+local function is_graphite_supported()
+    local ok, graphite = pcall(require, 'metrics.plugins.graphite')
+    return ok and type(graphite) == "table" and type(graphite.stop) == "function"
+end
+
 local function validate_graphite(conf)
-    local ok = pcall(require('metrics.plugins.graphite').stop)
-    if not ok then
+    if not is_graphite_supported() then
         error('ensure you have metrics 1.7.0+ (provided with Tarantool 3.7.0+ or can be ' ..
             'installed as an external dependency)', 2)
     end
