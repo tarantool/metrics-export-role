@@ -180,11 +180,6 @@ local function is_graphite_supported()
 end
 
 local function validate_graphite(conf)
-    if not is_graphite_supported() then
-        error('ensure you have metrics 1.7.0+ (provided with Tarantool 3.7.0+ or can be ' ..
-            'installed as an external dependency)', 2)
-    end
-
     if conf ~= nil and type(conf) ~= "table" then
         error("graphite configuration must be a table, got " .. type(conf), 2)
     end
@@ -192,6 +187,11 @@ local function validate_graphite(conf)
 
     if not is_array(conf) then
         error("graphite configuration must be an array, not a map", 2)
+    end
+
+    if next(conf) ~= nil and not is_graphite_supported() then
+        error('ensure you have metrics 1.7.0+ (provided with Tarantool 3.7.0+ or can be ' ..
+            'installed as an external dependency)', 2)
     end
 
     for _, graphite_node in ipairs(conf) do

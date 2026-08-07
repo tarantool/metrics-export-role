@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Export targets not being stopped after removal from the role configuration (#47).
 - Graphite exporters stop after a configuration reload that keeps the
   `graphite` section unchanged.
+- Requirement of metrics 1.7.0+ for an empty `graphite` section.
 
 ## 0.4.1 - 2026-05-07
 
